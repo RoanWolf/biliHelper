@@ -1,6 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Input;
@@ -141,12 +143,90 @@ public class MainViewModel : ViewModelBase
         set => SetProperty(ref _isStreaming, value);
     }
 
+    // ── 历史记录 ────────────────────────────────────────────
+    private bool _isHistoryOpen;
+    public bool IsHistoryOpen
+    {
+        get => _isHistoryOpen;
+        set => SetProperty(ref _isHistoryOpen, value);
+    }
+
+    public ObservableCollection<HistoryItem> HistoryItems { get; } = [];
+
     // ── 命令 ────────────────────────────────────────────────
     public ICommand FetchCommand { get; }
+    public ICommand ToggleHistoryCommand { get; }
+    public ICommand LoadFromHistoryCommand { get; }
 
     public MainViewModel()
     {
         FetchCommand = new RelayCommand(async _ => await FetchAsync(), _ => CanFetch);
+        ToggleHistoryCommand = new RelayCommand(_ => ToggleHistory());
+        LoadFromHistoryCommand = new RelayCommand(async param =>
+        {
+            if (param is HistoryItem item)
+                await LoadHistoryItem(item);
+        });
+    }
+
+    /// <summary>
+    /// 打开/关闭历史记录抽屉。
+    /// </summary>
+    private void ToggleHistory()
+    {
+        if (!IsHistoryOpen)
+        {
+            // 打开时刷新列表
+            var items = HistoryService.LoadIndex();
+            HistoryItems.Clear();
+            foreach (var item in items)
+                HistoryItems.Add(item);
+        }
+        IsHistoryOpen = !IsHistoryOpen;
+    }
+
+    /// <summary>
+    /// 从历史记录加载视频。
+    /// </summary>
+    private async Task LoadHistoryItem(HistoryItem item)
+    {
+        // 关闭抽屉
+        IsHistoryOpen = false;
+
+        var info = HistoryService.LoadVideo(item.BvId);
+        if (info == null)
+        {
+            HasError = true;
+            ErrorMessage = $"无法加载历史数据: {item.BvId}";
+            return;
+        }
+
+        // 清空当前状态
+        ErrorMessage = string.Empty;
+        HasError = false;
+        HasProgress = false;
+        ProgressText = string.Empty;
+        SelectedPart = null;
+        FilteredEntries.Clear();
+        StatusMessage = $"📂 已从历史加载 · {info.Title} · 共 {info.TotalParts}P · {info.TotalSubtitleCount} 条字幕";
+
+        // 赋值到 UI，null 再赋值强制刷新
+        VideoInfo = null;
+        VideoInfo = info;
+
+        // 选中第一个有字幕的分P
+        var firstWithSubs = info.Parts.FirstOrDefault(p => p.HasSubtitles);
+        SelectPart(firstWithSubs ?? info.Parts.FirstOrDefault()!);
+    }
+
+    /// <summary>
+    /// 从 URL 中提取 BV ID。
+    /// </summary>
+    private static string? ExtractBvId(string url)
+    {
+        if (string.IsNullOrWhiteSpace(url)) return null;
+        var m = Regex.Match(url, @"BV[\w]{10,}");
+        return m.Success ? m.Value : null;
     }
 
     private async Task FetchAsync()
@@ -243,7 +323,7 @@ public class MainViewModel : ViewModelBase
                 {
                     info.Status = ev.Status ?? "empty";
 
-                    ui.Invoke(() =>
+                    ui.Invoke(async () =>
                     {
                         IsStreaming = false;
                         HasProgress = false;
@@ -258,6 +338,9 @@ public class MainViewModel : ViewModelBase
                             SelectPart(savedPart);
                         else if (info.Parts.Count > 0)
                             SelectPart(info.Parts[0]);
+
+                        // 保存到历史记录（后台线程，不阻塞 UI）
+                        await Task.Run(() => HistoryService.SaveFromVideoInfo(info));
 
                         StatusMessage = $"✅ 已加载 · {info.Title} · 共 {info.TotalParts}P · {info.TotalSubtitleCount} 条字幕";
                     });

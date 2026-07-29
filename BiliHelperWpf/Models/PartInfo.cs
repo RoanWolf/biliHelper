@@ -21,7 +21,7 @@ public class PartInfo
     public int SubtitleCount { get; set; }
     public string? SubtitleSource { get; set; }
     public string? SubtitleLang { get; set; }
-    public ObservableCollection<SubtitleEntry> Entries { get; init; } = [];
+    public ObservableCollection<SubtitleEntry> Entries { get; set; } = [];
 
     /// <summary>
     /// 字幕来源的友好描述。

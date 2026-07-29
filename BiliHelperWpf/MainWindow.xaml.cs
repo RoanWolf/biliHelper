@@ -1,6 +1,8 @@
 ﻿using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Media;
+using System.Windows.Media.Animation;
 using System.Windows.Shell;
 using BiliHelperWpf.ViewModels;
 
@@ -28,7 +30,6 @@ public partial class MainWindow : Window
         {
             if (e.PropertyName == nameof(MainViewModel.SelectedPart))
             {
-                // 等 UI 更新完再滚动到顶部
                 Dispatcher.BeginInvoke(() =>
                 {
                     if (SubtitleListBox?.IsLoaded == true)
@@ -38,7 +39,43 @@ public partial class MainWindow : Window
                     }
                 });
             }
+
+            // 历史抽屉打开时播放滑入动画
+            if (e.PropertyName == nameof(MainViewModel.IsHistoryOpen))
+            {
+                Dispatcher.BeginInvoke(() =>
+                {
+                    if (HistoryDrawer?.RenderTransform is TranslateTransform tt)
+                    {
+                        if (_vm.IsHistoryOpen)
+                        {
+                            tt.X = 320;
+                            var anim = new DoubleAnimation(0, TimeSpan.FromMilliseconds(200))
+                            {
+                                EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseOut }
+                            };
+                            tt.BeginAnimation(TranslateTransform.XProperty, anim);
+                        }
+                        else
+                        {
+                            var anim = new DoubleAnimation(320, TimeSpan.FromMilliseconds(150))
+                            {
+                                EasingFunction = new QuadraticEase { EasingMode = EasingMode.EaseIn }
+                            };
+                            tt.BeginAnimation(TranslateTransform.XProperty, anim);
+                        }
+                    }
+                });
+            }
         };
+    }
+
+    /// <summary>
+    /// 点击遮罩关闭历史抽屉。
+    /// </summary>
+    private void HistoryOverlay_MouseDown(object sender, MouseButtonEventArgs e)
+    {
+        _vm.ToggleHistoryCommand.Execute(null);
     }
 
     private void OnWindowStateChanged(object? sender, EventArgs e)
