@@ -3,6 +3,7 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+using System.Windows.Shapes;
 using System.Windows.Shell;
 using BiliHelperWpf.ViewModels;
 
@@ -71,13 +72,14 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// 点击遮罩关闭历史抽屉。
+    /// 点击遮罩关闭历史抽屉（仅当点击的是遮罩本身，不是子元素）。
     /// </summary>
     private void HistoryOverlay_MouseDown(object sender, MouseButtonEventArgs e)
     {
-        _vm.ToggleHistoryCommand.Execute(null);
+        // 只有直接点击 Rectangle 遮罩才关闭，点击按钮等子元素不触发
+        if (e.OriginalSource is Rectangle)
+            _vm.ToggleHistoryCommand.Execute(null);
     }
-
     private void OnWindowStateChanged(object? sender, EventArgs e)
     {
         if (WindowState == WindowState.Maximized)
