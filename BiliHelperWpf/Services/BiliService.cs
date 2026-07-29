@@ -16,8 +16,8 @@ namespace BiliHelperWpf.Services;
 public class BiliService
 {
     private static readonly string ProjectRoot = FindProjectRoot();
-    private static readonly string PythonScript = Path.Combine(ProjectRoot, "main.py");
-    private static readonly string CookieFile = Path.Combine(ProjectRoot, "www.bilibili.com_cookies.txt");
+    private static readonly string PythonScript = Path.Combine(ProjectRoot, "bilihelperCore", "main.py");
+    private static readonly string CookieFile = Path.Combine(ProjectRoot, "bilihelperCore", "www.bilibili.com_cookies.txt");
 
     /// <summary>
     /// 流式获取字幕。
@@ -237,7 +237,7 @@ public class BiliService
         for (int i = 0; i < 5; i++)
         {
             if (dir == null) break;
-            if (File.Exists(Path.Combine(dir.FullName, "main.py")))
+            if (Directory.Exists(Path.Combine(dir.FullName, "bilihelperCore")))
                 return dir.FullName;
             dir = dir.Parent;
         }

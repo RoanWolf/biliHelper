@@ -53,7 +53,7 @@ from typing import Optional
 # 路径 & 常量
 # ---------------------------------------------------------------------------
 
-_PROJECT_DIR = Path(__file__).resolve().parent
+_PROJECT_DIR = Path(__file__).resolve().parent.parent
 _YTDLP = str(_PROJECT_DIR / ".venv" / "Scripts" / "yt-dlp.exe")
 
 _SUB_LANGS_PREFER = ["ai-zh", "zh-Hans", "zh-Hant", "zh", "ai-en", "en", "ja"]
