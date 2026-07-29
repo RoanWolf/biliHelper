@@ -151,7 +151,7 @@ public class MainViewModel : ViewModelBase
         set => SetProperty(ref _isHistoryOpen, value);
     }
 
-    public ObservableCollection<HistoryItem> HistoryItems { get; } = [];
+    public ObservableCollection<HistoryGroup> HistoryGroups { get; } = [];
 
     // ── 命令 ────────────────────────────────────────────────
     public ICommand FetchCommand { get; }
@@ -176,11 +176,11 @@ public class MainViewModel : ViewModelBase
     {
         if (!IsHistoryOpen)
         {
-            // 打开时刷新列表
-            var items = HistoryService.LoadIndex();
-            HistoryItems.Clear();
-            foreach (var item in items)
-                HistoryItems.Add(item);
+            // 打开时刷新分组列表
+            var groups = HistoryService.LoadGroups();
+            HistoryGroups.Clear();
+            foreach (var group in groups)
+                HistoryGroups.Add(group);
         }
         IsHistoryOpen = !IsHistoryOpen;
     }

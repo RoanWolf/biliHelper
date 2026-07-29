@@ -26,3 +26,6 @@ BiliHelperWpf/obj/
 
 # Visual Studio
 .vs/
+
+# History records (user data)
+BiliHelperWpf/history/

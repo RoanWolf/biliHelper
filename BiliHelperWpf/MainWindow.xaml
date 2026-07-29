@@ -713,64 +713,115 @@
                                        VerticalAlignment="Center" />
                             <Button Grid.Column="1"
                                     Command="{Binding ToggleHistoryCommand}"
-                                    Background="Transparent"
-                                    BorderThickness="0"
                                     Cursor="Hand"
-                                    Width="28" Height="28">
+                                    Width="32" Height="32"
+                                    BorderThickness="0"
+                                    Padding="0"
+                                    ToolTip="关闭">
+                                <Button.Style>
+                                    <Style TargetType="Button">
+                                        <Setter Property="Background" Value="Transparent" />
+                                        <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
+                                        <Style.Triggers>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter Property="Background" Value="{StaticResource SurfaceHoverBrush}" />
+                                                <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+                                            </Trigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Button.Style>
                                 <TextBlock Text="✕"
-                                           FontSize="14"
-                                           Foreground="{StaticResource TextSecondaryBrush}" />
+                                           FontSize="16"
+                                           VerticalAlignment="Center"
+                                           HorizontalAlignment="Center" />
                             </Button>
                         </Grid>
                     </Border>
 
-                    <!-- 历史视频列表 -->
+                    <!-- 历史视频列表（按日期分组） -->
                     <ListBox Grid.Row="1"
-                             ItemsSource="{Binding HistoryItems}"
+                             ItemsSource="{Binding HistoryGroups}"
                              Background="Transparent"
                              BorderThickness="0">
                         <ListBox.ItemTemplate>
                             <DataTemplate>
-                                <Border Padding="12,10"
-                                        BorderBrush="{StaticResource BorderBrush}"
-                                        BorderThickness="0,0,0,1"
-                                        Cursor="Hand">
-                                    <Border.InputBindings>
-                                        <MouseBinding Gesture="LeftDoubleClick"
-                                                      Command="{Binding DataContext.LoadFromHistoryCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                      CommandParameter="{Binding}" />
-                                    </Border.InputBindings>
-                                    <Grid>
-                                        <Grid.RowDefinitions>
-                                            <RowDefinition Height="Auto" />
-                                            <RowDefinition Height="Auto" />
-                                        </Grid.RowDefinitions>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Grid.Row="0" Grid.Column="0"
-                                                   Text="{Binding DisplayTitle}"
-                                                   FontSize="13" FontWeight="SemiBold"
-                                                   TextTrimming="CharacterEllipsis" />
-                                        <TextBlock Grid.Row="0" Grid.Column="1"
-                                                   Text="{Binding DisplayDate}"
-                                                   FontSize="11"
-                                                   Foreground="{StaticResource TextMutedBrush}"
-                                                   VerticalAlignment="Center" />
-                                        <TextBlock Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
-                                                   Text="{Binding Summary}"
-                                                   FontSize="11"
+                                <StackPanel>
+                                    <!-- 日期分组标题 -->
+                                    <Border Background="{StaticResource BackgroundBrush}"
+                                            Padding="16,10,16,4">
+                                        <TextBlock Text="{Binding GroupTitle}"
+                                                   FontSize="12" FontWeight="SemiBold"
                                                    Foreground="{StaticResource TextSecondaryBrush}" />
-                                    </Grid>
-                                </Border>
+                                    </Border>
+
+                                    <!-- 该日期下的视频列表 -->
+                                    <ItemsControl ItemsSource="{Binding Items}"
+                                                  Background="Transparent"
+                                                  BorderThickness="0">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Border Padding="16,10,16,10"
+                                                        BorderBrush="{StaticResource BorderBrush}"
+                                                        BorderThickness="0,0,0,1"
+                                                        Cursor="Hand"
+                                                        Background="Transparent">
+                                                    <Border.Style>
+                                                        <Style TargetType="Border">
+                                                            <Style.Triggers>
+                                                                <Trigger Property="IsMouseOver" Value="True">
+                                                                    <Setter Property="Background" Value="{StaticResource SurfaceHoverBrush}" />
+                                                                </Trigger>
+                                                            </Style.Triggers>
+                                                        </Style>
+                                                    </Border.Style>
+                                                    <Border.InputBindings>
+                                                        <MouseBinding Gesture="LeftDoubleClick"
+                                                                      Command="{Binding DataContext.LoadFromHistoryCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                      CommandParameter="{Binding}" />
+                                                    </Border.InputBindings>
+                                                    <Grid>
+                                                        <Grid.RowDefinitions>
+                                                            <RowDefinition Height="Auto" />
+                                                            <RowDefinition Height="Auto" />
+                                                        </Grid.RowDefinitions>
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="*" />
+                                                            <ColumnDefinition Width="Auto" />
+                                                        </Grid.ColumnDefinitions>
+
+                                                        <!-- 标题 -->
+                                                        <TextBlock Grid.Row="0" Grid.Column="0"
+                                                                   Text="{Binding DisplayTitle}"
+                                                                   FontSize="13" FontWeight="SemiBold"
+                                                                   TextTrimming="CharacterEllipsis" />
+
+                                                        <!-- 时间 -->
+                                                        <TextBlock Grid.Row="0" Grid.Column="1"
+                                                                   Text="{Binding TimeStr}"
+                                                                   FontSize="11"
+                                                                   Foreground="{StaticResource TextMutedBrush}"
+                                                                   VerticalAlignment="Center"
+                                                                   Margin="10,0,0,0" />
+
+                                                        <!-- 摘要 -->
+                                                        <TextBlock Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
+                                                                   Text="{Binding Summary}"
+                                                                   FontSize="11"
+                                                                   Foreground="{StaticResource TextSecondaryBrush}"
+                                                                   Margin="0,2,0,0" />
+                                                    </Grid>
+                                                </Border>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </StackPanel>
                             </DataTemplate>
                         </ListBox.ItemTemplate>
                     </ListBox>
 
                     <!-- 底部 -->
                     <TextBlock Grid.Row="2"
-                               Text="双击条目加载"
+                               Text="双击条目加载历史"
                                FontSize="11"
                                Foreground="{StaticResource TextMutedBrush}"
                                Padding="16,8" />

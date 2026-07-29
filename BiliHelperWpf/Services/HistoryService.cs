@@ -1,97 +1,98 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
-using System.Threading.Tasks;
+using System.Text.RegularExpressions;
 using BiliHelperWpf.Models;
 
 namespace BiliHelperWpf.Services;
 
 /// <summary>
 /// 管理历史记录的 JSON 文件存储。
+///
 /// 目录结构:
-///   BiliHelperWpf/history/
-///   ├── index.json          ← 轻量索引 (HistoryItem 列表)
-///   └── BVxxxxxxxx.json    ← 完整视频数据 (BiliVideoInfo)
+///   history/
+///   ├── 20260728/
+///   │   ├── BV1sC516rEQs.json
+///   │   └── BV116w5zuEbo.json
+///   ├── 20260727/
+///   │   └── BVxxxxxxx.json
+///   └── ...
+///
+/// 文件夹名即日期键（YYYYMMDD），文件名为 BV ID。
+/// 不需要单独的 index.json，文件夹本身就是索引。
 /// </summary>
 public static class HistoryService
 {
     private static readonly string HistoryDir;
-    private static readonly string IndexPath;
 
     static HistoryService()
     {
-        // history 目录放在 WPF 项目根目录同级
-        var baseDir = AppDomain.CurrentDomain.BaseDirectory;
+        // 优先放在 WPF 项目根目录（开发时），否则放在 exe 同级（发布后）
+        var baseDir = FindProjectRoot() ?? AppDomain.CurrentDomain.BaseDirectory;
         HistoryDir = Path.Combine(baseDir, "history");
-        IndexPath = Path.Combine(HistoryDir, "index.json");
-
-        // 确保目录存在
         try { Directory.CreateDirectory(HistoryDir); }
-        catch { /* 忽略 */ }
+        catch { }
     }
 
     /// <summary>
-    /// 检查某个 BV ID 是否已有历史记录。
+    /// 向上查找项目根目录（包含 BiliHelperWpf.csproj）。
+    /// </summary>
+    private static string? FindProjectRoot()
+    {
+        var dir = new DirectoryInfo(AppDomain.CurrentDomain.BaseDirectory);
+        for (int i = 0; i < 5; i++)
+        {
+            if (dir == null) break;
+            if (File.Exists(Path.Combine(dir.FullName, "BiliHelperWpf.csproj")))
+                return dir.FullName;
+            dir = dir.Parent;
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// 获取某条记录的完整文件路径。
+    /// 格式: history/YYYYMMDD/BVxxx.json
+    /// </summary>
+    private static string GetDataPath(string dateKey, string bvId)
+    {
+        var dir = Path.Combine(HistoryDir, dateKey);
+        return Path.Combine(dir, $"{bvId}.json");
+    }
+
+    /// <summary>
+    /// 获取某天文件夹路径。
+    /// </summary>
+    private static string GetDateDirPath(string dateKey)
+    {
+        return Path.Combine(HistoryDir, dateKey);
+    }
+
+    /// <summary>
+    /// 检查某个 BV ID 是否已有历史记录（扫描所有日期文件夹）。
     /// </summary>
     public static bool Exists(string bvId)
     {
-        var path = GetDataPath(bvId);
-        return File.Exists(path);
+        return FindByBvId(bvId) != null;
     }
 
     /// <summary>
-    /// 获取完整的视频数据文件路径。
+    /// 在所有日期文件夹中搜索指定 BV ID 的文件路径。
     /// </summary>
-    private static string GetDataPath(string bvId) =>
-        Path.Combine(HistoryDir, $"{bvId}.json");
-
-    /// <summary>
-    /// 加载所有历史记录索引。
-    /// </summary>
-    public static List<HistoryItem> LoadIndex()
+    private static string? FindByBvId(string bvId)
     {
-        try
+        if (!Directory.Exists(HistoryDir))
+            return null;
+
+        foreach (var dateDir in Directory.GetDirectories(HistoryDir))
         {
-            if (!File.Exists(IndexPath))
-                return [];
-
-            var json = File.ReadAllText(IndexPath, System.Text.Encoding.UTF8);
-            return JsonSerializer.Deserialize<List<HistoryItem>>(json) ?? [];
+            var filePath = Path.Combine(dateDir, $"{bvId}.json");
+            if (File.Exists(filePath))
+                return filePath;
         }
-        catch
-        {
-            // 索引损坏时返回空列表
-            return [];
-        }
-    }
-
-    /// <summary>
-    /// 追加一条历史记录到索引。
-    /// </summary>
-    private static void AppendIndex(HistoryItem item)
-    {
-        try
-        {
-            var items = LoadIndex();
-
-            // 去重：如果已存在同 BV ID，移除旧的
-            items.RemoveAll(i => i.BvId == item.BvId);
-
-            // 新记录插在最前面
-            items.Insert(0, item);
-
-            var json = JsonSerializer.Serialize(items, new JsonSerializerOptions
-            {
-                WriteIndented = true,
-                Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-            });
-            File.WriteAllText(IndexPath, json, System.Text.Encoding.UTF8);
-        }
-        catch (Exception ex)
-        {
-            App.Log($"写入历史索引失败: {ex.Message}");
-        }
+        return null;
     }
 
     /// <summary>
@@ -102,37 +103,49 @@ public static class HistoryService
         if (string.IsNullOrEmpty(info.BvId))
             return;
 
-        // 1. 保存完整数据
-        var dataPath = GetDataPath(info.BvId);
-        try
-        {
-            var options = new JsonSerializerOptions
-            {
-                WriteIndented = true,
-                Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-            };
-            var json = JsonSerializer.Serialize(info, options);
-            File.WriteAllText(dataPath, json, System.Text.Encoding.UTF8);
-        }
-        catch (Exception ex)
-        {
-            App.Log($"保存历史数据失败: {ex.Message}");
-            return;
-        }
+        var now = DateTime.Now;
+        var dateKey = now.ToString("yyyyMMdd");
+        var dir = GetDateDirPath(dateKey);
 
-        // 2. 更新索引
+        try { Directory.CreateDirectory(dir); }
+        catch { return; }
+
+        // 构建设 HistoryItem 元数据
         var item = new HistoryItem
         {
             BvId = info.BvId,
             Title = info.Title,
-            FetchTime = DateTime.Now.ToString("yyyy-MM-dd HH:mm"),
             TotalParts = info.TotalParts,
             TotalSubtitles = info.TotalSubtitleCount,
             Status = info.Status,
+            FetchTimeIso = now.ToString("yyyy-MM-ddTHH:mm:ss"),
         };
-        AppendIndex(item);
 
-        App.Log($"历史记录已保存: {info.BvId} - {info.Title}");
+        // 保存完整视频数据（嵌入元信息，方便加载和展示）
+        var dataToSave = new
+        {
+            meta = item,
+            data = info
+        };
+
+        var options = new JsonSerializerOptions
+        {
+            WriteIndented = true,
+            Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+        };
+
+        var json = JsonSerializer.Serialize(dataToSave, options);
+        var filePath = GetDataPath(dateKey, info.BvId);
+
+        try
+        {
+            File.WriteAllText(filePath, json, System.Text.Encoding.UTF8);
+            App.Log($"历史记录已保存: {filePath}");
+        }
+        catch (Exception ex)
+        {
+            App.Log($"保存历史数据失败: {ex.Message}");
+        }
     }
 
     /// <summary>
@@ -140,13 +153,22 @@ public static class HistoryService
     /// </summary>
     public static BiliVideoInfo? LoadVideo(string bvId)
     {
-        var path = GetDataPath(bvId);
-        if (!File.Exists(path))
+        var filePath = FindByBvId(bvId);
+        if (filePath == null)
             return null;
 
         try
         {
-            var json = File.ReadAllText(path, System.Text.Encoding.UTF8);
+            var json = File.ReadAllText(filePath, System.Text.Encoding.UTF8);
+
+            // 尝试解析新格式（有 meta 包裹）
+            using var doc = JsonDocument.Parse(json);
+            if (doc.RootElement.TryGetProperty("data", out var dataElem))
+            {
+                return JsonSerializer.Deserialize<BiliVideoInfo>(dataElem.GetRawText());
+            }
+
+            // 兼容旧格式（直接就是 BiliVideoInfo）
             return JsonSerializer.Deserialize<BiliVideoInfo>(json);
         }
         catch (Exception ex)
@@ -157,27 +179,123 @@ public static class HistoryService
     }
 
     /// <summary>
-    /// 删除一条历史记录（完整数据 + 索引）。
+    /// 加载所有历史记录，按日期分组（倒序）、组内按时间倒序。
+    /// </summary>
+    public static List<HistoryGroup> LoadGroups()
+    {
+        var groups = new List<HistoryGroup>();
+
+        if (!Directory.Exists(HistoryDir))
+            return groups;
+
+        // 获取所有日期文件夹，按名称倒序（最新的日期在前）
+        var dateDirs = Directory.GetDirectories(HistoryDir)
+            .Select(d => new DirectoryInfo(d))
+            .Where(d => Regex.IsMatch(d.Name, @"^\d{8}$"))  // 只认 YYYYMMDD 格式
+            .OrderByDescending(d => d.Name)
+            .ToList();
+
+        foreach (var dateDir in dateDirs)
+        {
+            var dateKey = dateDir.Name;
+            var group = new HistoryGroup
+            {
+                DateKey = dateKey,
+                GroupTitle = FormatDateGroup(dateKey),
+            };
+
+            // 获取该日期下的所有 JSON 文件，按文件修改时间倒序
+            var files = dateDir.GetFiles("*.json")
+                .OrderByDescending(f => f.LastWriteTime)
+                .ToList();
+
+            foreach (var file in files)
+            {
+                try
+                {
+                    var json = File.ReadAllText(file.FullName, System.Text.Encoding.UTF8);
+                    using var doc = JsonDocument.Parse(json);
+
+                    if (doc.RootElement.TryGetProperty("meta", out var metaElem))
+                    {
+                        // 新格式：有 meta 字段
+                        var item = JsonSerializer.Deserialize<HistoryItem>(metaElem.GetRawText());
+                        if (item != null)
+                            group.Items.Add(item);
+                    }
+                    else
+                    {
+                        // 旧格式：直接是 BiliVideoInfo
+                        var info = JsonSerializer.Deserialize<BiliVideoInfo>(json);
+                        if (info != null)
+                        {
+                            group.Items.Add(new HistoryItem
+                            {
+                                BvId = info.BvId,
+                                Title = info.Title,
+                                TotalParts = info.TotalParts,
+                                TotalSubtitles = info.TotalSubtitleCount,
+                                Status = info.Status,
+                                FetchTimeIso = file.LastWriteTime.ToString("yyyy-MM-ddTHH:mm:ss"),
+                            });
+                        }
+                    }
+                }
+                catch
+                {
+                    // 文件损坏跳过
+                }
+            }
+
+            if (group.Items.Count > 0)
+                groups.Add(group);
+        }
+
+        return groups;
+    }
+
+    /// <summary>
+    /// 删除一条历史记录。
     /// </summary>
     public static void Delete(string bvId)
     {
-        // 删除数据文件
-        var dataPath = GetDataPath(bvId);
-        try { if (File.Exists(dataPath)) File.Delete(dataPath); }
-        catch { }
+        var filePath = FindByBvId(bvId);
+        if (filePath == null) return;
 
-        // 从索引中移除
         try
         {
-            var items = LoadIndex();
-            items.RemoveAll(i => i.BvId == bvId);
-            var json = JsonSerializer.Serialize(items, new JsonSerializerOptions
+            File.Delete(filePath);
+
+            // 如果日期文件夹为空，一起删除
+            var dir = Path.GetDirectoryName(filePath);
+            if (dir != null && Directory.Exists(dir) && !Directory.EnumerateFileSystemEntries(dir).Any())
             {
-                WriteIndented = true,
-                Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-            });
-            File.WriteAllText(IndexPath, json, System.Text.Encoding.UTF8);
+                Directory.Delete(dir);
+            }
+
+            App.Log($"历史记录已删除: {bvId}");
         }
-        catch { }
+        catch (Exception ex)
+        {
+            App.Log($"删除历史数据失败: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// 将 "20260728" 格式化为 "2026年07月28日"。
+    /// </summary>
+    private static string FormatDateGroup(string dateKey)
+    {
+        if (dateKey.Length != 8)
+            return dateKey;
+
+        try
+        {
+            return $"{dateKey[..4]}年{dateKey[4..6]}月{dateKey[6..8]}日";
+        }
+        catch
+        {
+            return dateKey;
+        }
     }
 }
