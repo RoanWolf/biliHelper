@@ -1,0 +1,666 @@
+﻿<Window x:Class="BiliHelperWpf.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:conv="clr-namespace:BiliHelperWpf.Converters"
+        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        mc:Ignorable="d"
+        Title="BiliHelper"
+        Height="800" Width="1200"
+        MinHeight="500" MinWidth="800"
+        WindowStartupLocation="CenterScreen"
+        WindowStyle="None"
+        ResizeMode="CanResizeWithGrip"
+        Background="#F7F8FA"
+        FontFamily="Microsoft YaHei, PingFang SC, sans-serif"
+        FontSize="14"
+        Foreground="#1F2329"
+        UseLayoutRounding="True">
+    <shell:WindowChrome.WindowChrome>
+        <shell:WindowChrome CaptionHeight="32"
+                            ResizeBorderThickness="4"
+                            CornerRadius="0"
+                            GlassFrameThickness="0"
+                            UseAeroCaptionButtons="False" />
+    </shell:WindowChrome.WindowChrome>
+
+    <Window.Resources>
+        <Color x:Key="BackgroundColor">#F7F8FA</Color>
+        <Color x:Key="SurfaceColor">#FFFFFF</Color>
+        <Color x:Key="SurfaceHoverColor">#F0F2F5</Color>
+        <Color x:Key="SurfaceSelectedColor">#E8F3FF</Color>
+        <Color x:Key="PrimaryColor">#FB7299</Color>
+        <Color x:Key="PrimaryHover">#FC8BAB</Color>
+        <Color x:Key="PrimaryPressed">#E85B82</Color>
+        <Color x:Key="TextPrimary">#1F2329</Color>
+        <Color x:Key="TextSecondary">#4E5969</Color>
+        <Color x:Key="TextMuted">#86909C</Color>
+        <Color x:Key="BorderColor">#E5E6EB</Color>
+        <Color x:Key="InputBg">#FFFFFF</Color>
+        <Color x:Key="StatusSuccess">#00B42A</Color>
+        <Color x:Key="StatusRunning">#165DFF</Color>
+        <Color x:Key="StatusWaiting">#86909C</Color>
+        <Color x:Key="StatusError">#F53F3F</Color>
+
+        <SolidColorBrush x:Key="BackgroundBrush" Color="{StaticResource BackgroundColor}" />
+        <SolidColorBrush x:Key="PrimaryBrush" Color="{StaticResource PrimaryColor}" />
+        <SolidColorBrush x:Key="PrimaryHoverBrush" Color="{StaticResource PrimaryHover}" />
+        <SolidColorBrush x:Key="PrimaryPressedBrush" Color="{StaticResource PrimaryPressed}" />
+        <SolidColorBrush x:Key="SurfaceBrush" Color="{StaticResource SurfaceColor}" />
+        <SolidColorBrush x:Key="SurfaceHoverBrush" Color="{StaticResource SurfaceHoverColor}" />
+        <SolidColorBrush x:Key="SurfaceSelectedBrush" Color="{StaticResource SurfaceSelectedColor}" />
+        <SolidColorBrush x:Key="TextPrimaryBrush" Color="{StaticResource TextPrimary}" />
+        <SolidColorBrush x:Key="TextSecondaryBrush" Color="{StaticResource TextSecondary}" />
+        <SolidColorBrush x:Key="TextMutedBrush" Color="{StaticResource TextMuted}" />
+        <SolidColorBrush x:Key="BorderBrush" Color="{StaticResource BorderColor}" />
+        <SolidColorBrush x:Key="InputBgBrush" Color="{StaticResource InputBg}" />
+        <SolidColorBrush x:Key="SuccessBrush" Color="{StaticResource StatusSuccess}" />
+        <SolidColorBrush x:Key="RunningBrush" Color="{StaticResource StatusRunning}" />
+        <SolidColorBrush x:Key="WaitingBrush" Color="{StaticResource StatusWaiting}" />
+        <SolidColorBrush x:Key="ErrorBrush" Color="{StaticResource StatusError}" />
+
+        <conv:BoolToVisibilityConverter x:Key="BoolToVis" />
+        <conv:BoolToVisibilityConverter x:Key="InverseBoolToVis" Inverted="True" />
+        <conv:NullToVisibilityConverter x:Key="NullToVis" />
+        <conv:StatusToColorConverter x:Key="StatusToColor" />
+
+        <!-- 标题栏按钮样式 -->
+        <Style x:Key="TitleBarButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="46" />
+            <Setter Property="Height" Value="32" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource SurfaceHoverBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#D9DDE3" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- 关闭按钮样式 -->
+        <Style x:Key="CloseButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="46" />
+            <Setter Property="Height" Value="32" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd" Background="{TemplateBinding Background}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#E81123" />
+                                <Setter Property="Foreground" Value="White" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#BF0F1D" />
+                                <Setter Property="Foreground" Value="White" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- 分P列表项样式 -->
+        <Style x:Key="PartItemStyle" TargetType="ListBoxItem">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Padding" Value="14,10" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="Bd"
+                                Background="{TemplateBinding Background}"
+                                BorderThickness="0"
+                                Padding="{TemplateBinding Padding}"
+                                SnapsToDevicePixels="True">
+                            <ContentPresenter />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource SurfaceHoverBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource SurfaceSelectedBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- 字幕条目样式 -->
+        <Style x:Key="SubItemStyle" TargetType="ListBoxItem">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Padding" Value="10,7" />
+            <Setter Property="BorderThickness" Value="0,0,0,1" />
+            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="Bd"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                Padding="{TemplateBinding Padding}"
+                                SnapsToDevicePixels="True">
+                            <ContentPresenter />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource SurfaceHoverBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource SurfaceSelectedBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- 次按钮样式 -->
+        <Style x:Key="SecondaryButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="#FFFFFF" />
+            <Setter Property="Foreground" Value="#1F2329" />
+            <Setter Property="BorderBrush" Value="#D9DDE3" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="16,0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="6"
+                                Padding="{TemplateBinding Padding}"
+                                SnapsToDevicePixels="True">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#F0F2F5" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#E5E6EB" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="Bd" Property="Background" Value="#F7F8FA" />
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#E5E6EB" />
+                                <Setter Property="Foreground" Value="#86909C" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="32" />    <!-- 自定义标题栏 -->
+            <RowDefinition Height="Auto" />  <!-- URL 输入行 -->
+            <RowDefinition Height="Auto" />  <!-- 进度 -->
+            <RowDefinition Height="Auto" />  <!-- 错误 -->
+            <RowDefinition Height="Auto" />  <!-- 元信息 -->
+            <RowDefinition Height="*" />     <!-- 主体 -->
+            <RowDefinition Height="Auto" />  <!-- 底栏 -->
+        </Grid.RowDefinitions>
+
+        <!-- ═══ 自定义标题栏 ═══ -->
+        <Border Grid.Row="0"
+                Background="{StaticResource SurfaceBrush}"
+                BorderBrush="{StaticResource BorderBrush}"
+                BorderThickness="0,0,0,1"
+                x:Name="TitleBar"
+                MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="46" />
+                    <ColumnDefinition Width="46" />
+                    <ColumnDefinition Width="46" />
+                </Grid.ColumnDefinitions>
+
+                <!-- 标题（拖动区域） -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal"
+                            VerticalAlignment="Center"
+                            Margin="10,0,0,0"
+                            shell:WindowChrome.IsHitTestVisibleInChrome="False">
+                    <Image Source="Assets/logo.jpg"
+                           Width="20" Height="20"
+                           VerticalAlignment="Center"
+                           Margin="0,0,8,0" />
+                    <TextBlock Text="BiliHelper"
+                               FontSize="13" FontWeight="SemiBold"
+                               Foreground="{StaticResource PrimaryBrush}"
+                               VerticalAlignment="Center" />
+                    <Ellipse Width="4" Height="4"
+                             Fill="{StaticResource TextMutedBrush}"
+                             VerticalAlignment="Center"
+                             Margin="8,0" />
+                    <TextBlock Text="B 站字幕查看器"
+                               FontSize="12"
+                               Foreground="{StaticResource TextSecondaryBrush}"
+                               VerticalAlignment="Center" />
+                </StackPanel>
+
+                <!-- 中间空白拖拽区域 -->
+                <Rectangle Grid.Column="1" Fill="Transparent"
+                           shell:WindowChrome.IsHitTestVisibleInChrome="False" />
+
+                <!-- 最小化 -->
+                <Button Grid.Column="2"
+                        Style="{StaticResource TitleBarButtonStyle}"
+                        x:Name="MinimizeButton"
+                        Click="MinimizeButton_Click"
+                        shell:WindowChrome.IsHitTestVisibleInChrome="True">
+                    <Path Data="M0,0 L10,0"
+                          Stroke="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
+                          StrokeThickness="1.2"
+                          VerticalAlignment="Center"
+                          HorizontalAlignment="Center" />
+                </Button>
+
+                <!-- 最大化/还原 -->
+                <Button Grid.Column="3"
+                        Style="{StaticResource TitleBarButtonStyle}"
+                        x:Name="MaximizeButton"
+                        Click="MaximizeButton_Click"
+                        shell:WindowChrome.IsHitTestVisibleInChrome="True">
+                    <Grid Width="10" Height="10">
+                        <Path x:Name="MaxIcon"
+                              Data="M0,0 L10,0 L10,10 L0,10 Z"
+                              Stroke="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
+                              StrokeThickness="1.2"
+                              Fill="Transparent" />
+                        <Path x:Name="RestoreIcon"
+                              Data="M2,2 L10,2 L10,10 L2,10 Z M0,0 L8,0 L8,8 L0,8 Z"
+                              Stroke="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
+                              StrokeThickness="1.2"
+                              Fill="{StaticResource SurfaceBrush}"
+                              Visibility="Collapsed" />
+                    </Grid>
+                </Button>
+
+                <!-- 关闭 -->
+                <Button Grid.Column="4"
+                        Style="{StaticResource CloseButtonStyle}"
+                        x:Name="CloseButton"
+                        Click="CloseButton_Click"
+                        shell:WindowChrome.IsHitTestVisibleInChrome="True">
+                    <Path Data="M0,0 L10,10 M10,0 L0,10"
+                          Stroke="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
+                          StrokeThickness="1.2"
+                          VerticalAlignment="Center"
+                          HorizontalAlignment="Center" />
+                </Button>
+            </Grid>
+        </Border>
+
+        <!-- ═══ URL 输入行 ═══ -->
+        <Border Grid.Row="1" Background="{StaticResource SurfaceBrush}" Padding="16,12"
+                BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1">
+            <StackPanel>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <Border Grid.Column="0"
+                            Background="{StaticResource InputBgBrush}"
+                            BorderBrush="{StaticResource BorderBrush}"
+                            BorderThickness="1" CornerRadius="6">
+                        <TextBox Text="{Binding Url, UpdateSourceTrigger=PropertyChanged}"
+                                 FontSize="14" Padding="12,8" BorderThickness="0"
+                                 Background="Transparent" Foreground="{StaticResource TextPrimaryBrush}"
+                                 CaretBrush="{StaticResource PrimaryBrush}"
+                                 VerticalContentAlignment="Center" />
+                    </Border>
+
+                    <Button Grid.Column="1"
+                            Content="📥 拉取字幕"
+                            Command="{Binding FetchCommand}"
+                            Height="38" Margin="8,0,0,0"
+                            Padding="20,0" FontSize="14" FontWeight="SemiBold"
+                            Cursor="Hand" BorderThickness="0">
+                        <Button.Style>
+                            <Style TargetType="Button">
+                                <Setter Property="Background" Value="{StaticResource PrimaryBrush}" />
+                                <Setter Property="Foreground" Value="White" />
+                                <Style.Triggers>
+                                    <Trigger Property="IsEnabled" Value="False">
+                                        <Setter Property="Background" Value="#E5E6EB" />
+                                        <Setter Property="Foreground" Value="#86909C" />
+                                    </Trigger>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="Background" Value="{StaticResource PrimaryHoverBrush}" />
+                                    </Trigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Button.Style>
+                    </Button>
+
+                    <TextBlock Grid.Column="2" Text="🍪" FontSize="16" VerticalAlignment="Center" Margin="10,0,0,0"
+                               ToolTip="已配置 cookies (www.bilibili.com_cookies.txt)" />
+                </Grid>
+                <TextBlock Text="💡 支持 BV 号 / 完整 URL / 多P合集 / 自动识别字幕语言"
+                           FontSize="11" Foreground="{StaticResource TextMutedBrush}" Margin="0,4,0,0" />
+            </StackPanel>
+        </Border>
+
+        <!-- ═══ 进度条行 ═══ -->
+        <Border Grid.Row="2" Background="{StaticResource SurfaceBrush}"
+                Padding="16,12"
+                BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1"
+                Visibility="{Binding HasProgress, Converter={StaticResource BoolToVis}}">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <ProgressBar Grid.Row="0"
+                             Value="{Binding ProgressPercent}"
+                             Minimum="0" Maximum="100"
+                             Height="6"
+                             Foreground="{StaticResource PrimaryBrush}"
+                             Background="{StaticResource BorderBrush}"
+                             BorderThickness="0" />
+
+                <Grid Grid.Row="1" Margin="0,4,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Grid.Column="0" Text="{Binding ProgressText}"
+                               FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"
+                               TextTrimming="CharacterEllipsis" />
+                    <TextBlock Grid.Column="1" Text="{Binding ProgressPercent, StringFormat={}{0:F0}%}"
+                               FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" />
+                </Grid>
+            </Grid>
+        </Border>
+
+        <!-- ═══ 错误行 ═══ -->
+        <Border Grid.Row="3" Background="{StaticResource SurfaceBrush}" Padding="16,8"
+                BorderBrush="{StaticResource ErrorBrush}" BorderThickness="0,0,0,1"
+                Visibility="{Binding HasError, Converter={StaticResource BoolToVis}}">
+            <TextBlock Text="{Binding ErrorMessage}"
+                       Foreground="{StaticResource ErrorBrush}"
+                       FontSize="13" TextWrapping="Wrap" />
+        </Border>
+
+        <!-- ═══ 视频元信息 ═══ -->
+        <Border Grid.Row="4" Background="{StaticResource SurfaceBrush}" Padding="16,12"
+                BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1"
+                Visibility="{Binding HasVideoInfo, Converter={StaticResource BoolToVis}}">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <Ellipse Grid.Column="0" Width="12" Height="12"
+                         Fill="{Binding VideoInfo.Status, Converter={StaticResource StatusToColor}}"
+                         VerticalAlignment="Center" Margin="0,0,10,0" />
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding VideoInfo.Title}"
+                               FontSize="16" FontWeight="Bold"
+                               TextTrimming="CharacterEllipsis" MaxWidth="500" />
+                    <TextBlock Text="{Binding VideoInfo.BvId, StringFormat='  ·  {0}'}"
+                               FontSize="12" Foreground="{StaticResource TextSecondaryBrush}"
+                               VerticalAlignment="Center" />
+                    <TextBlock Text="{Binding VideoInfo.StatusDisplay, StringFormat='  ·  {0}'}"
+                               FontSize="12" Foreground="{StaticResource TextSecondaryBrush}"
+                               VerticalAlignment="Center" Margin="0,0,10,0" />
+                    <TextBlock Text="{Binding VideoInfo.TotalSubtitleCount, StringFormat='共 {0} 条字幕'}"
+                               FontSize="12" Foreground="{StaticResource TextSecondaryBrush}"
+                               VerticalAlignment="Center" />
+                </StackPanel>
+
+                <TextBlock Grid.Column="2" Text="{Binding VideoInfo.TotalParts, StringFormat='共 {0}P'}"
+                           Foreground="{StaticResource TextSecondaryBrush}"
+                           FontSize="12"
+                           VerticalAlignment="Center" />
+            </Grid>
+        </Border>
+
+        <!-- ═══ 主体区域 ═══ -->
+        <Grid Grid.Row="5">
+            <!-- 有数据时 -->
+            <Grid Visibility="{Binding HasVideoInfo, Converter={StaticResource BoolToVis}}">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="260" />
+                    <ColumnDefinition Width="4" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <!-- 左侧：分P列表 -->
+                <Border Grid.Column="0" Background="{StaticResource SurfaceBrush}"
+                        BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,1,0">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+
+                        <Border Grid.Row="0" BorderBrush="{StaticResource BorderBrush}"
+                                BorderThickness="0,0,0,1" Padding="14,10">
+                            <TextBlock Text="{Binding VideoInfo.TotalParts, StringFormat='📋 分P 列表 ({0})'}"
+                                       FontSize="13" FontWeight="SemiBold"
+                                       Foreground="{StaticResource TextSecondaryBrush}" />
+                        </Border>
+
+                        <ListBox Grid.Row="1"
+                                 ItemsSource="{Binding VideoInfo.Parts}"
+                                 SelectedItem="{Binding SelectedPart}"
+                                 ItemContainerStyle="{StaticResource PartItemStyle}"
+                                 Background="Transparent" BorderThickness="0"
+                                 ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+
+                                        <Ellipse Grid.Column="0" Width="8" Height="8"
+                                                 VerticalAlignment="Center" Margin="0,0,8,0">
+                                            <Ellipse.Style>
+                                                <Style TargetType="Ellipse">
+                                                    <Setter Property="Fill" Value="{StaticResource SuccessBrush}" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding HasSubtitles}" Value="False">
+                                                            <Setter Property="Fill" Value="{StaticResource TextMutedBrush}" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Ellipse.Style>
+                                        </Ellipse>
+
+                                        <TextBlock Grid.Column="1" Text="{Binding DisplayTitle}"
+                                                   FontSize="13" TextTrimming="CharacterEllipsis"
+                                                   VerticalAlignment="Center" />
+                                        <TextBlock Grid.Column="2" Text="{Binding DurationFormatted}"
+                                                   FontSize="11" Foreground="{StaticResource TextMutedBrush}"
+                                                   VerticalAlignment="Center" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </Grid>
+                </Border>
+
+                <GridSplitter Grid.Column="1" Width="4"
+                              Background="Transparent"
+                              HorizontalAlignment="Center"
+                              ResizeDirection="Columns" />
+
+                <!-- 右侧：字幕区域 -->
+                <Border Grid.Column="2" Background="{StaticResource BackgroundBrush}">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+
+                        <!-- 搜索栏 -->
+                        <Border Grid.Row="0" Background="{StaticResource SurfaceBrush}"
+                                BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1"
+                                Padding="12,8">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+
+                                <Border Grid.Column="0"
+                                        Background="{StaticResource InputBgBrush}"
+                                        BorderBrush="{StaticResource BorderBrush}"
+                                        BorderThickness="1" CornerRadius="4" Height="32">
+                                    <TextBox Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                                             FontSize="13" Padding="8,0" BorderThickness="0"
+                                             Background="Transparent" Foreground="{StaticResource TextPrimaryBrush}"
+                                             CaretBrush="{StaticResource PrimaryBrush}"
+                                             VerticalContentAlignment="Center" />
+                                </Border>
+
+                                <TextBlock Grid.Column="1" Text="{Binding FilteredCount}"
+                                           FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"
+                                           VerticalAlignment="Center" Margin="12,0,0,0" />
+                            </Grid>
+                        </Border>
+
+                        <!-- 无选中分P时的占位 -->
+                        <TextBlock Grid.Row="1"
+                                   Text="← 从左侧选择一个分P"
+                                   FontSize="14" Foreground="{StaticResource TextMutedBrush}"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   Visibility="{Binding SelectedPart, Converter={StaticResource NullToVis}, ConverterParameter=Invert}" />
+
+                        <!-- 字幕列表 -->
+                        <ListBox Grid.Row="1" x:Name="SubtitleListBox"
+                                 ItemsSource="{Binding FilteredEntries}"
+                                 ItemContainerStyle="{StaticResource SubItemStyle}"
+                                 Background="Transparent" BorderThickness="0"
+                                 VirtualizingPanel.IsVirtualizing="True"
+                                 VirtualizingPanel.VirtualizationMode="Recycling"
+                                 Visibility="{Binding SelectedPart, Converter={StaticResource NullToVis}}">
+                            <ListBox.ItemTemplate>
+                                <DataTemplate>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                        </Grid.RowDefinitions>
+
+                                        <Border Grid.Row="0" Grid.RowSpan="2" Grid.Column="0"
+                                                Background="{StaticResource SurfaceBrush}"
+                                                BorderBrush="{StaticResource BorderBrush}"
+                                                BorderThickness="1" CornerRadius="4"
+                                                Padding="8,4" VerticalAlignment="Top"
+                                                Margin="0,0,10,0" MinWidth="80">
+                                            <StackPanel>
+                                                <TextBlock Text="{Binding StartTimeFormatted}"
+                                                           FontSize="12" FontFamily="Consolas, monospace"
+                                                           Foreground="{StaticResource PrimaryBrush}"
+                                                           HorizontalAlignment="Center" />
+                                                <TextBlock Text="{Binding EndTimeFormatted}"
+                                                           FontSize="10" FontFamily="Consolas, monospace"
+                                                           Foreground="{StaticResource TextMutedBrush}"
+                                                           HorizontalAlignment="Center" />
+                                            </StackPanel>
+                                        </Border>
+
+                                        <TextBlock Grid.Row="0" Grid.Column="1"
+                                                   Text="{Binding Text}"
+                                                   FontSize="14" TextWrapping="Wrap"
+                                                   LineHeight="22" VerticalAlignment="Center" />
+
+                                        <TextBlock Grid.Row="1" Grid.Column="1"
+                                                   Text="{Binding Index, StringFormat='#{0}'}"
+                                                   FontSize="10" Foreground="{StaticResource TextMutedBrush}"
+                                                   Margin="0,2,0,0" />
+                                    </Grid>
+                                </DataTemplate>
+                            </ListBox.ItemTemplate>
+                        </ListBox>
+                    </Grid>
+                </Border>
+            </Grid>
+
+            <!-- 空状态占位 -->
+            <Border Background="{StaticResource BackgroundBrush}"
+                    Visibility="{Binding HasVideoInfo, Converter={StaticResource InverseBoolToVis}}">
+                <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                    <TextBlock Text="🎬" FontSize="64" HorizontalAlignment="Center" />
+                    <TextBlock Text="输入视频 URL 并点击「拉取字幕」"
+                               FontSize="16" Foreground="{StaticResource TextSecondaryBrush}"
+                               HorizontalAlignment="Center" Margin="0,16,0,0" />
+                    <TextBlock Text="支持 BV 号 · 完整链接 · 多P 视频 · AI 字幕 / CC 字幕"
+                               FontSize="12" Foreground="{StaticResource TextMutedBrush}"
+                               HorizontalAlignment="Center" Margin="0,8,0,0" />
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- ═══ 底栏 ═══ -->
+        <Border Grid.Row="6" Background="{StaticResource SurfaceBrush}" Padding="16,6"
+                BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock Grid.Column="0" Text="{Binding StatusMessage}"
+                           FontSize="11" Foreground="{StaticResource TextMutedBrush}"
+                           VerticalAlignment="Center" />
+                <!-- 右下角调整大小手柄 -->
+                <Border Grid.Column="1" Width="16" Height="14"
+                        VerticalAlignment="Bottom" HorizontalAlignment="Right"
+                        Opacity="0.4">
+                    <Path Data="M0,14 L14,0"
+                          Stroke="{StaticResource TextMutedBrush}"
+                          StrokeThickness="1.5"
+                          VerticalAlignment="Bottom"
+                          HorizontalAlignment="Right"
+                          Margin="0,0,2,2" />
+                </Border>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

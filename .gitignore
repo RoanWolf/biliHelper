@@ -1,0 +1,28 @@
+# Cookies (sensitive)
+*_cookies.txt
+*.cookies
+
+# Test outputs
+test_*.json
+dump_*.json
+test_sub_*.srt
+
+# Python
+__pycache__/
+*.pyc
+
+# venv
+.venv/
+
+# Claude
+.claude/
+
+# Notes
+notes/
+
+# WPF build output
+BiliHelperWpf/bin/
+BiliHelperWpf/obj/
+
+# Visual Studio
+.vs/
