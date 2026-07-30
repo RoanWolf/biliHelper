@@ -684,10 +684,9 @@
                                                 </Grid.ColumnDefinitions>
                                                 <Grid.RowDefinitions>
                                                     <RowDefinition Height="Auto" />
-                                                    <RowDefinition Height="Auto" />
                                                 </Grid.RowDefinitions>
 
-                                                <Border Grid.Row="0" Grid.RowSpan="2" Grid.Column="0"
+                                                <Border Grid.Row="0" Grid.Column="0"
                                                         Background="{StaticResource SurfaceBrush}"
                                                         BorderBrush="{StaticResource BorderBrush}"
                                                         BorderThickness="1" CornerRadius="4"
@@ -709,11 +708,6 @@
                                                            Text="{Binding Text}"
                                                            FontSize="14" TextWrapping="Wrap"
                                                            LineHeight="22" VerticalAlignment="Center" />
-
-                                                <TextBlock Grid.Row="1" Grid.Column="1"
-                                                           Text="{Binding Index, StringFormat='#{0}'}"
-                                                           FontSize="10" Foreground="{StaticResource TextMutedBrush}"
-                                                           Margin="0,2,0,0" />
                                             </Grid>
                                         </DataTemplate>
                                     </ListBox.ItemTemplate>
