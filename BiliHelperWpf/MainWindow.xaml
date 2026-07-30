@@ -13,7 +13,7 @@
         WindowStyle="None"
         ResizeMode="CanResizeWithGrip"
         Background="#F7F8FA"
-        FontFamily="Microsoft YaHei, PingFang SC, sans-serif"
+        FontFamily="pack://application:,,,/BiliHelperWpf;component/Assets/#Lilex Duo, Microsoft YaHei, PingFang SC, sans-serif"
         FontSize="14"
         Foreground="#1F2329"
         UseLayoutRounding="True">
@@ -694,11 +694,11 @@
                                                         Margin="0,0,10,0" MinWidth="80">
                                                     <StackPanel>
                                                         <TextBlock Text="{Binding StartTimeFormatted}"
-                                                                   FontSize="12" FontFamily="Consolas, monospace"
+                                                                   FontSize="12" FontFamily="pack://application:,,,/BiliHelperWpf;component/Assets/#Lilex Duo"
                                                                    Foreground="{StaticResource PrimaryBrush}"
                                                                    HorizontalAlignment="Center" />
                                                         <TextBlock Text="{Binding EndTimeFormatted}"
-                                                                   FontSize="10" FontFamily="Consolas, monospace"
+                                                                   FontSize="10" FontFamily="pack://application:,,,/BiliHelperWpf;component/Assets/#Lilex Duo"
                                                                    Foreground="{StaticResource TextMutedBrush}"
                                                                    HorizontalAlignment="Center" />
                                                     </StackPanel>
