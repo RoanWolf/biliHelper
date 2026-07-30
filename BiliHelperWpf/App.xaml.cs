@@ -8,9 +8,28 @@ namespace BiliHelperWpf;
 
 public partial class App : Application
 {
-    private static readonly string LogPath = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.Desktop),
-        "BiliHelperWpf_Log.txt");
+    private static readonly string LogPath;
+
+    static App()
+    {
+        // 定位到项目根目录（包含 bilihelperCore 的目录）
+        var dir = new DirectoryInfo(AppDomain.CurrentDomain.BaseDirectory);
+        string? projectRoot = null;
+        for (int i = 0; i < 5; i++)
+        {
+            if (dir == null) break;
+            if (Directory.Exists(Path.Combine(dir.FullName, "bilihelperCore")))
+            {
+                projectRoot = dir.FullName;
+                break;
+            }
+            dir = dir.Parent;
+        }
+
+        var logDir = Path.Combine(projectRoot ?? AppDomain.CurrentDomain.BaseDirectory, "_log");
+        Directory.CreateDirectory(logDir);
+        LogPath = Path.Combine(logDir, "BiliHelperWpf_Log.txt");
+    }
 
     protected override void OnStartup(StartupEventArgs e)
     {

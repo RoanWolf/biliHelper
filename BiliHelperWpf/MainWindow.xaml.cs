@@ -80,6 +80,21 @@ public partial class MainWindow : Window
         if (e.OriginalSource is Rectangle)
             _vm.ToggleHistoryCommand.Execute(null);
     }
+
+    /// <summary>
+    /// 切换字幕 TAB（原始字幕 / AI校对字幕）。
+    /// </summary>
+    private void SubtitleTab_PreviewMouseDown(object sender, MouseButtonEventArgs e)
+    {
+        if (sender is Border border)
+        {
+            if (border.Name == "TabAiProof")
+                _vm.SelectedSubtitleTab = 1;
+            else if (border.Name == "TabOriginal")
+                _vm.SelectedSubtitleTab = 0;
+        }
+    }
+
     private void OnWindowStateChanged(object? sender, EventArgs e)
     {
         if (WindowState == WindowState.Maximized)
@@ -123,4 +138,6 @@ public partial class MainWindow : Window
     {
         Close();
     }
+
+
 }

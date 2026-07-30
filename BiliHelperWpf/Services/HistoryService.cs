@@ -14,13 +14,16 @@ namespace BiliHelperWpf.Services;
 /// 目录结构:
 ///   history/
 ///   ├── 20260728/
-///   │   ├── BV1sC516rEQs.json
-///   │   └── BV116w5zuEbo.json
+///   │   ├── BV1sC516rEQs/
+///   │   │   └── raw.json          ← 原始字幕
+///   │   └── BV116w5zuEbo/
+///   │       └── raw.json
 ///   ├── 20260727/
-///   │   └── BVxxxxxxx.json
+///   │   └── BVxxxxxxx/
+///   │       └── raw.json
 ///   └── ...
 ///
-/// 文件夹名即日期键（YYYYMMDD），文件名为 BV ID。
+/// 日期文件夹（YYYYMMDD）为索引，BV 文件夹内可扩展多种字幕文件。
 /// 不需要单独的 index.json，文件夹本身就是索引。
 /// </summary>
 public static class HistoryService
@@ -53,13 +56,13 @@ public static class HistoryService
     }
 
     /// <summary>
-    /// 获取某条记录的完整文件路径。
-    /// 格式: history/YYYYMMDD/BVxxx.json
+    /// 获取某条记录中 raw 字幕的完整文件路径。
+    /// 格式: history/YYYYMMDD/BVxxx/raw.json
     /// </summary>
     private static string GetDataPath(string dateKey, string bvId)
     {
-        var dir = Path.Combine(HistoryDir, dateKey);
-        return Path.Combine(dir, $"{bvId}.json");
+        var dir = Path.Combine(HistoryDir, dateKey, bvId);
+        return Path.Combine(dir, "raw.json");
     }
 
     /// <summary>
@@ -88,7 +91,8 @@ public static class HistoryService
 
         foreach (var dateDir in Directory.GetDirectories(HistoryDir))
         {
-            var filePath = Path.Combine(dateDir, $"{bvId}.json");
+            var dirPath = Path.Combine(dateDir, bvId);
+            var filePath = Path.Combine(dirPath, "raw.json");
             if (File.Exists(filePath))
                 return filePath;
         }
@@ -107,7 +111,8 @@ public static class HistoryService
         var dateKey = now.ToString("yyyyMMdd");
         var dir = GetDateDirPath(dateKey);
 
-        try { Directory.CreateDirectory(dir); }
+        var saveDir = Path.Combine(dir, info.BvId);
+        try { Directory.CreateDirectory(saveDir); }
         catch { return; }
 
         // 构建设 HistoryItem 元数据
@@ -135,7 +140,7 @@ public static class HistoryService
         };
 
         var json = JsonSerializer.Serialize(dataToSave, options);
-        var filePath = GetDataPath(dateKey, info.BvId);
+        var filePath = Path.Combine(saveDir, "raw.json");
 
         try
         {
@@ -204,40 +209,47 @@ public static class HistoryService
                 GroupTitle = FormatDateGroup(dateKey),
             };
 
-            // 获取该日期下的所有 JSON 文件，按文件修改时间倒序
-            var files = dateDir.GetFiles("*.json")
-                .OrderByDescending(f => f.LastWriteTime)
+            // 获取该日期下所有 BV 子目录，按子目录修改时间倒序
+            var bvDirs = Directory.GetDirectories(dateDir.FullName)
+                .Select(d => new DirectoryInfo(d))
+                .OrderByDescending(d => d.LastWriteTime)
                 .ToList();
 
-            foreach (var file in files)
+            foreach (var bvDir in bvDirs)
             {
+                var rawFile = Path.Combine(bvDir.FullName, "raw.json");
+                if (!File.Exists(rawFile))
+                    continue;
+
                 try
                 {
-                    var json = File.ReadAllText(file.FullName, System.Text.Encoding.UTF8);
+                    var json = File.ReadAllText(rawFile, System.Text.Encoding.UTF8);
                     using var doc = JsonDocument.Parse(json);
 
                     if (doc.RootElement.TryGetProperty("meta", out var metaElem))
                     {
-                        // 新格式：有 meta 字段
                         var item = JsonSerializer.Deserialize<HistoryItem>(metaElem.GetRawText());
                         if (item != null)
                             group.Items.Add(item);
                     }
                     else
                     {
-                        // 旧格式：直接是 BiliVideoInfo
-                        var info = JsonSerializer.Deserialize<BiliVideoInfo>(json);
-                        if (info != null)
+                        // 兼容旧格式（直接是 BiliVideoInfo，嵌套在 data 字段里）
+                        if (doc.RootElement.TryGetProperty("data", out var dataElem))
                         {
-                            group.Items.Add(new HistoryItem
+                            var info = JsonSerializer.Deserialize<BiliVideoInfo>(dataElem.GetRawText());
+                            if (info != null)
                             {
-                                BvId = info.BvId,
-                                Title = info.Title,
-                                TotalParts = info.TotalParts,
-                                TotalSubtitles = info.TotalSubtitleCount,
-                                Status = info.Status,
-                                FetchTimeIso = file.LastWriteTime.ToString("yyyy-MM-ddTHH:mm:ss"),
-                            });
+                                group.Items.Add(new HistoryItem
+                                {
+                                    BvId = info.BvId,
+                                    Title = info.Title,
+                                    TotalParts = info.TotalParts,
+                                    TotalSubtitles = info.TotalSubtitleCount,
+                                    Status = info.Status,
+                                    FetchTimeIso = bvDir.LastWriteTime.ToString("yyyy-MM-ddTHH:mm:ss"),
+                                });
+                            }
                         }
                     }
                 }
@@ -255,7 +267,7 @@ public static class HistoryService
     }
 
     /// <summary>
-    /// 删除一条历史记录。
+    /// 删除一条历史记录（递归删除 BV 目录）。
     /// </summary>
     public static void Delete(string bvId)
     {
@@ -264,13 +276,17 @@ public static class HistoryService
 
         try
         {
-            File.Delete(filePath);
+            var bvDir = Path.GetDirectoryName(filePath);
+            if (bvDir != null && Directory.Exists(bvDir))
+            {
+                Directory.Delete(bvDir, recursive: true);
+            }
 
             // 如果日期文件夹为空，一起删除
-            var dir = Path.GetDirectoryName(filePath);
-            if (dir != null && Directory.Exists(dir) && !Directory.EnumerateFileSystemEntries(dir).Any())
+            var dateDir = Path.GetDirectoryName(bvDir);
+            if (dateDir != null && Directory.Exists(dateDir) && !Directory.EnumerateFileSystemEntries(dateDir).Any())
             {
-                Directory.Delete(dir);
+                Directory.Delete(dateDir);
             }
 
             App.Log($"历史记录已删除: {bvId}");

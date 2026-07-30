@@ -543,91 +543,198 @@
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
 
-                        <!-- 搜索栏 -->
+                        <!-- ═══ TAB 栏 ═══ -->
                         <Border Grid.Row="0" Background="{StaticResource SurfaceBrush}"
-                                BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1"
-                                Padding="12,8">
+                                BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1">
                             <Grid>
                                 <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
                                     <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
-
+                                <!-- 原始字幕 TAB -->
                                 <Border Grid.Column="0"
-                                        Background="{StaticResource InputBgBrush}"
-                                        BorderBrush="{StaticResource BorderBrush}"
-                                        BorderThickness="1" CornerRadius="4" Height="32">
-                                    <TextBox Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
-                                             FontSize="13" Padding="8,0" BorderThickness="0"
-                                             Background="Transparent" Foreground="{StaticResource TextPrimaryBrush}"
-                                             CaretBrush="{StaticResource PrimaryBrush}"
-                                             VerticalContentAlignment="Center" />
+                                        x:Name="TabOriginal"
+                                        PreviewMouseDown="SubtitleTab_PreviewMouseDown"
+                                        Background="{StaticResource SurfaceBrush}"
+                                        Padding="16,8,16,8"
+                                        Cursor="Hand">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="BorderBrush" Value="Transparent" />
+                                            <Setter Property="BorderThickness" Value="0,0,0,2" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SelectedSubtitleTab}" Value="0">
+                                                    <Setter Property="BorderBrush" Value="{StaticResource PrimaryBrush}" />
+                                                </DataTrigger>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter Property="Background" Value="{StaticResource SurfaceHoverBrush}" />
+                                                </Trigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <TextBlock Text="原始字幕"
+                                               FontSize="13" FontWeight="SemiBold">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding SelectedSubtitleTab}" Value="0">
+                                                        <Setter Property="Foreground" Value="{StaticResource PrimaryBrush}" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
                                 </Border>
-
-                                <TextBlock Grid.Column="1" Text="{Binding FilteredCount}"
-                                           FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"
-                                           VerticalAlignment="Center" Margin="12,0,0,0" />
+                                <!-- AI校对字幕 TAB -->
+                                <Border Grid.Column="1"
+                                        x:Name="TabAiProof"
+                                        PreviewMouseDown="SubtitleTab_PreviewMouseDown"
+                                        Background="Transparent"
+                                        Padding="16,8,16,8"
+                                        Cursor="Hand">
+                                    <Border.Style>
+                                        <Style TargetType="Border">
+                                            <Setter Property="BorderBrush" Value="Transparent" />
+                                            <Setter Property="BorderThickness" Value="0,0,0,2" />
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding SelectedSubtitleTab}" Value="1">
+                                                    <Setter Property="BorderBrush" Value="{StaticResource PrimaryBrush}" />
+                                                </DataTrigger>
+                                                <Trigger Property="IsMouseOver" Value="True">
+                                                    <Setter Property="Background" Value="{StaticResource SurfaceHoverBrush}" />
+                                                </Trigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Border.Style>
+                                    <TextBlock Text="AI校对字幕"
+                                               FontSize="13">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="FontWeight" Value="Normal" />
+                                                <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding SelectedSubtitleTab}" Value="1">
+                                                        <Setter Property="FontWeight" Value="SemiBold" />
+                                                        <Setter Property="Foreground" Value="{StaticResource PrimaryBrush}" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </Border>
                             </Grid>
                         </Border>
 
-                        <!-- 无选中分P时的占位 -->
-                        <TextBlock Grid.Row="1"
-                                   Text="← 从左侧选择一个分P"
-                                   FontSize="14" Foreground="{StaticResource TextMutedBrush}"
-                                   HorizontalAlignment="Center" VerticalAlignment="Center"
-                                   Visibility="{Binding SelectedPart, Converter={StaticResource NullToVis}, ConverterParameter=Invert}" />
+                        <!-- 原始字幕内容（SelectedSubtitleTab == 0） -->
+                        <Grid Grid.Row="1" Visibility="{Binding IsOriginalSubtitleVisible, Converter={StaticResource BoolToVis}}">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="*" />
+                            </Grid.RowDefinitions>
 
-                        <!-- 字幕列表 -->
-                        <ListBox Grid.Row="1" x:Name="SubtitleListBox"
-                                 ItemsSource="{Binding FilteredEntries}"
-                                 ItemContainerStyle="{StaticResource SubItemStyle}"
-                                 Background="Transparent" BorderThickness="0"
-                                 VirtualizingPanel.IsVirtualizing="True"
-                                 VirtualizingPanel.VirtualizationMode="Recycling"
-                                 Visibility="{Binding SelectedPart, Converter={StaticResource NullToVis}}">
-                            <ListBox.ItemTemplate>
-                                <DataTemplate>
-                                    <Grid>
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto" />
-                                            <ColumnDefinition Width="*" />
-                                        </Grid.ColumnDefinitions>
-                                        <Grid.RowDefinitions>
-                                            <RowDefinition Height="Auto" />
-                                            <RowDefinition Height="Auto" />
-                                        </Grid.RowDefinitions>
+                            <!-- 搜索栏 -->
+                            <Border Grid.Row="0" Background="{StaticResource SurfaceBrush}"
+                                    BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1"
+                                    Padding="12,8">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="Auto" />
+                                    </Grid.ColumnDefinitions>
 
-                                        <Border Grid.Row="0" Grid.RowSpan="2" Grid.Column="0"
-                                                Background="{StaticResource SurfaceBrush}"
-                                                BorderBrush="{StaticResource BorderBrush}"
-                                                BorderThickness="1" CornerRadius="4"
-                                                Padding="8,4" VerticalAlignment="Top"
-                                                Margin="0,0,10,0" MinWidth="80">
-                                            <StackPanel>
-                                                <TextBlock Text="{Binding StartTimeFormatted}"
-                                                           FontSize="12" FontFamily="Consolas, monospace"
-                                                           Foreground="{StaticResource PrimaryBrush}"
-                                                           HorizontalAlignment="Center" />
-                                                <TextBlock Text="{Binding EndTimeFormatted}"
-                                                           FontSize="10" FontFamily="Consolas, monospace"
-                                                           Foreground="{StaticResource TextMutedBrush}"
-                                                           HorizontalAlignment="Center" />
-                                            </StackPanel>
-                                        </Border>
+                                    <Border Grid.Column="0"
+                                            Background="{StaticResource InputBgBrush}"
+                                            BorderBrush="{StaticResource BorderBrush}"
+                                            BorderThickness="1" CornerRadius="4" Height="32">
+                                        <TextBox Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                                                 FontSize="13" Padding="8,0" BorderThickness="0"
+                                                 Background="Transparent" Foreground="{StaticResource TextPrimaryBrush}"
+                                                 CaretBrush="{StaticResource PrimaryBrush}"
+                                                 VerticalContentAlignment="Center" />
+                                    </Border>
 
-                                        <TextBlock Grid.Row="0" Grid.Column="1"
-                                                   Text="{Binding Text}"
-                                                   FontSize="14" TextWrapping="Wrap"
-                                                   LineHeight="22" VerticalAlignment="Center" />
+                                    <TextBlock Grid.Column="1" Text="{Binding FilteredCount}"
+                                               FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"
+                                               VerticalAlignment="Center" Margin="12,0,0,0" />
+                                </Grid>
+                            </Border>
 
-                                        <TextBlock Grid.Row="1" Grid.Column="1"
-                                                   Text="{Binding Index, StringFormat='#{0}'}"
-                                                   FontSize="10" Foreground="{StaticResource TextMutedBrush}"
-                                                   Margin="0,2,0,0" />
-                                    </Grid>
-                                </DataTemplate>
-                            </ListBox.ItemTemplate>
-                        </ListBox>
+                            <!-- 无选中分P时的占位 -->
+                            <TextBlock Grid.Row="1"
+                                       Text="← 从左侧选择一个分P"
+                                       FontSize="14" Foreground="{StaticResource TextMutedBrush}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       Visibility="{Binding SelectedPart, Converter={StaticResource NullToVis}, ConverterParameter=Invert}" />
+
+                            <!-- 字幕列表容器 -->
+                            <Grid Grid.Row="2">
+                                <ListBox x:Name="SubtitleListBox"
+                                         ItemsSource="{Binding FilteredEntries}"
+                                         ItemContainerStyle="{StaticResource SubItemStyle}"
+                                         Background="Transparent" BorderThickness="0">
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate>
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto" />
+                                                    <ColumnDefinition Width="*" />
+                                                </Grid.ColumnDefinitions>
+                                                <Grid.RowDefinitions>
+                                                    <RowDefinition Height="Auto" />
+                                                    <RowDefinition Height="Auto" />
+                                                </Grid.RowDefinitions>
+
+                                                <Border Grid.Row="0" Grid.RowSpan="2" Grid.Column="0"
+                                                        Background="{StaticResource SurfaceBrush}"
+                                                        BorderBrush="{StaticResource BorderBrush}"
+                                                        BorderThickness="1" CornerRadius="4"
+                                                        Padding="8,4" VerticalAlignment="Top"
+                                                        Margin="0,0,10,0" MinWidth="80">
+                                                    <StackPanel>
+                                                        <TextBlock Text="{Binding StartTimeFormatted}"
+                                                                   FontSize="12" FontFamily="Consolas, monospace"
+                                                                   Foreground="{StaticResource PrimaryBrush}"
+                                                                   HorizontalAlignment="Center" />
+                                                        <TextBlock Text="{Binding EndTimeFormatted}"
+                                                                   FontSize="10" FontFamily="Consolas, monospace"
+                                                                   Foreground="{StaticResource TextMutedBrush}"
+                                                                   HorizontalAlignment="Center" />
+                                                    </StackPanel>
+                                                </Border>
+
+                                                <TextBlock Grid.Row="0" Grid.Column="1"
+                                                           Text="{Binding Text}"
+                                                           FontSize="14" TextWrapping="Wrap"
+                                                           LineHeight="22" VerticalAlignment="Center" />
+
+                                                <TextBlock Grid.Row="1" Grid.Column="1"
+                                                           Text="{Binding Index, StringFormat='#{0}'}"
+                                                           FontSize="10" Foreground="{StaticResource TextMutedBrush}"
+                                                           Margin="0,2,0,0" />
+                                            </Grid>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                            </Grid>
+                        </Grid>
+
+                        <!-- AI 校对字幕占位（SelectedSubtitleTab == 1） -->
+                        <Grid Grid.Row="1" Visibility="{Binding IsAiProofSubtitleVisible, Converter={StaticResource BoolToVis}}">
+                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
+                                <TextBlock Text="🤖" FontSize="40" HorizontalAlignment="Center" />
+                                <TextBlock Text="AI 校对字幕"
+                                           FontSize="15" FontWeight="SemiBold"
+                                           Foreground="{StaticResource TextSecondaryBrush}"
+                                           HorizontalAlignment="Center" Margin="0,12,0,0" />
+                                <TextBlock Text="功能开发中，敬请期待"
+                                           FontSize="12"
+                                           Foreground="{StaticResource TextMutedBrush}"
+                                           HorizontalAlignment="Center" Margin="0,6,0,0" />
+                            </StackPanel>
+                        </Grid>
                     </Grid>
                 </Border>
             </Grid>
@@ -715,28 +822,40 @@
                                        FontSize="15" FontWeight="SemiBold"
                                        VerticalAlignment="Center" />
                             <Button Grid.Column="1"
+                                    x:Name="HistoryCloseButton"
                                     Command="{Binding ToggleHistoryCommand}"
                                     Cursor="Hand"
                                     Width="32" Height="32"
                                     BorderThickness="0"
                                     Padding="0"
-                                    ToolTip="关闭">
-                                <Button.Style>
-                                    <Style TargetType="Button">
-                                        <Setter Property="Background" Value="Transparent" />
-                                        <Setter Property="Foreground" Value="{StaticResource TextSecondaryBrush}" />
-                                        <Style.Triggers>
+                                    ToolTip="关闭"
+                                    Background="Transparent"
+                                    Foreground="{StaticResource TextSecondaryBrush}"
+                                    shell:WindowChrome.IsHitTestVisibleInChrome="True">
+                                <Button.Template>
+                                    <ControlTemplate TargetType="Button">
+                                        <Border x:Name="Bd" Background="{TemplateBinding Background}">
+                                            <Path Data="M0,0 L12,12 M12,0 L0,12"
+                                                  Stroke="{TemplateBinding Foreground}"
+                                                  StrokeThickness="1.5"
+                                                  StrokeEndLineCap="Round"
+                                                  StrokeStartLineCap="Round"
+                                                  VerticalAlignment="Center"
+                                                  HorizontalAlignment="Center"
+                                                  Width="12" Height="12"
+                                                  Stretch="Uniform" />
+                                        </Border>
+                                        <ControlTemplate.Triggers>
                                             <Trigger Property="IsMouseOver" Value="True">
-                                                <Setter Property="Background" Value="{StaticResource SurfaceHoverBrush}" />
+                                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource SurfaceHoverBrush}" />
                                                 <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
                                             </Trigger>
-                                        </Style.Triggers>
-                                    </Style>
-                                </Button.Style>
-                                <TextBlock Text="✕"
-                                           FontSize="16"
-                                           VerticalAlignment="Center"
-                                           HorizontalAlignment="Center" />
+                                            <Trigger Property="IsPressed" Value="True">
+                                                <Setter TargetName="Bd" Property="Background" Value="#D9DDE3" />
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Button.Template>
                             </Button>
                         </Grid>
                     </Border>
@@ -781,7 +900,7 @@
                                                             </Style>
                                                         </Border.Style>
                                                         <Border.InputBindings>
-                                                            <MouseBinding Gesture="LeftDoubleClick"
+                                                            <MouseBinding Gesture="LeftClick"
                                                                           Command="{Binding DataContext.LoadFromHistoryCommand, RelativeSource={RelativeSource AncestorType=Window}}"
                                                                           CommandParameter="{Binding}" />
                                                         </Border.InputBindings>
@@ -825,7 +944,7 @@
 
                     <!-- 底部 -->
                     <TextBlock Grid.Row="2"
-                               Text="双击条目加载历史"
+                               Text="单击条目加载历史"
                                FontSize="11"
                                Foreground="{StaticResource TextMutedBrush}"
                                Padding="16,8" />

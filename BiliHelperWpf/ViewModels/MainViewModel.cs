@@ -98,7 +98,11 @@ public class MainViewModel : ViewModelBase
         set
         {
             if (SetProperty(ref _selectedPart, value))
+            {
                 ApplyFilter();
+                OnPropertyChanged(nameof(IsOriginalSubtitleVisible));
+                OnPropertyChanged(nameof(IsAiProofSubtitleVisible));
+            }
         }
     }
 
@@ -143,6 +147,24 @@ public class MainViewModel : ViewModelBase
         set => SetProperty(ref _isStreaming, value);
     }
 
+    // ── 字幕 TAB ────────────────────────────────────────────
+    private int _selectedSubtitleTab;
+    public int SelectedSubtitleTab
+    {
+        get => _selectedSubtitleTab;
+        set
+        {
+            if (SetProperty(ref _selectedSubtitleTab, value))
+            {
+                OnPropertyChanged(nameof(IsOriginalSubtitleVisible));
+                OnPropertyChanged(nameof(IsAiProofSubtitleVisible));
+            }
+        }
+    }
+
+    public bool IsOriginalSubtitleVisible => SelectedPart != null && SelectedSubtitleTab == 0;
+    public bool IsAiProofSubtitleVisible => SelectedPart != null && SelectedSubtitleTab == 1;
+
     // ── 历史记录 ────────────────────────────────────────────
     private bool _isHistoryOpen;
     public bool IsHistoryOpen
@@ -161,7 +183,7 @@ public class MainViewModel : ViewModelBase
     public MainViewModel()
     {
         FetchCommand = new RelayCommand(async _ => await FetchAsync(), _ => CanFetch);
-        ToggleHistoryCommand = new RelayCommand(_ => ToggleHistory());
+        ToggleHistoryCommand = new RelayCommand(async _ => await ToggleHistoryAsync());
         LoadFromHistoryCommand = new RelayCommand(async param =>
         {
             if (param is HistoryItem item)
@@ -171,18 +193,27 @@ public class MainViewModel : ViewModelBase
 
     /// <summary>
     /// 打开/关闭历史记录抽屉。
+    /// 先打开抽屉（动画流畅），再异步加载历史列表。
     /// </summary>
-    private void ToggleHistory()
+    private async Task ToggleHistoryAsync()
     {
-        if (!IsHistoryOpen)
+        if (IsHistoryOpen)
         {
-            // 打开时刷新分组列表
-            var groups = HistoryService.LoadGroups();
-            HistoryGroups.Clear();
-            foreach (var group in groups)
-                HistoryGroups.Add(group);
+            // 关闭抽屉，不做任何 I/O
+            IsHistoryOpen = false;
+            return;
         }
-        IsHistoryOpen = !IsHistoryOpen;
+
+        // 先清空旧数据，然后打开抽屉（滑入动画不卡）
+        HistoryGroups.Clear();
+        IsHistoryOpen = true;
+
+        // 后台线程慢慢读取历史文件，不阻塞 UI
+        var groups = await Task.Run(() => HistoryService.LoadGroups());
+
+        // 切回 UI 线程填充列表
+        foreach (var group in groups)
+            HistoryGroups.Add(group);
     }
 
     /// <summary>
@@ -414,6 +445,7 @@ public class MainViewModel : ViewModelBase
         if (SelectedPart == null)
         {
             FilteredEntries.Clear();
+            OnPropertyChanged(nameof(FilteredCount));
             return;
         }
 
@@ -421,24 +453,32 @@ public class MainViewModel : ViewModelBase
 
         if (string.IsNullOrWhiteSpace(SearchText))
         {
-            if (FilteredEntries.Count != source.Count ||
-                FilteredEntries.Zip(source, (a, b) => a == b).Any(m => !m))
+            // 无搜索时直接复用源集合引用，不产生任何 Add 开销
+            if (FilteredEntries.Count == source.Count)
             {
-                FilteredEntries.Clear();
-                foreach (var e in source)
-                    FilteredEntries.Add(e);
+                bool same = true;
+                for (int i = 0; i < source.Count && same; i++)
+                    if (FilteredEntries[i] != source[i])
+                        same = false;
+                if (same)
+                {
+                    OnPropertyChanged(nameof(FilteredCount));
+                    return;
+                }
             }
+            FilteredEntries.Clear();
+            for (int i = 0; i < source.Count; i++)
+                FilteredEntries.Add(source[i]);
         }
         else
         {
-            var keyword = SearchText.Trim().ToLower();
-            var filtered = source
-                .Where(e => e.Text.Contains(keyword, StringComparison.OrdinalIgnoreCase))
-                .ToList();
-
+            var keyword = SearchText.Trim();
             FilteredEntries.Clear();
-            foreach (var e in filtered)
-                FilteredEntries.Add(e);
+            foreach (var e in source)
+            {
+                if (e.Text.IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0)
+                    FilteredEntries.Add(e);
+            }
         }
 
         OnPropertyChanged(nameof(FilteredCount));

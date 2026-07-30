@@ -29,3 +29,6 @@ BiliHelperWpf/obj/
 
 # History records (user data)
 BiliHelperWpf/history/
+
+# Logs
+_log/

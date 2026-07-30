@@ -169,6 +169,7 @@ def get_parts(url: str, cookies: Optional[str] = None) -> tuple[list[dict], str]
     Returns:
         [{"part_number": 1, "part_title": "...", "duration": 123.4, "webpage_url": "..."}, ...]
     """
+    url = _normalize_url(url)
     args = ["--flat-playlist", "--dump-json", "--skip-download", "--yes-playlist"]
     args += _cookies_arg(cookies) + [url]
 
@@ -543,6 +544,14 @@ def get_subtitles_stream(
 def _extract_bv_from_url(url: str) -> str:
     m = re.search(r"BV[\w]+", url, re.IGNORECASE)
     return m.group(0) if m else url
+
+
+def _normalize_url(url: str) -> str:
+    """如果是裸 BV 号，自动补全为完整 Bilibili 视频 URL。"""
+    m = re.search(r"^BV[\w]{10,}$", url.strip(), re.IGNORECASE)
+    if m:
+        return f"https://www.bilibili.com/video/{m.group(0)}"
+    return url
 
 
 # ---------------------------------------------------------------------------
