@@ -9,7 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Resource Include="Assets\logo.jpg" />
+    <Resource Include="Assets\logo.png" />
     <Resource Include="Assets\LilexDuo-Regular.ttf" />
   </ItemGroup>
 

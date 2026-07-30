@@ -21,7 +21,7 @@ public partial class MainWindow : Window
 
         // 设置任务栏图标
         Icon = new System.Windows.Media.Imaging.BitmapImage(
-            new Uri("pack://application:,,,/Assets/logo.jpg"));
+            new Uri("pack://application:,,,/Assets/logo.png"));
 
         // 监听窗口状态变化，切换最大化/还原图标
         StateChanged += OnWindowStateChanged;
