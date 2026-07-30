@@ -41,13 +41,12 @@ BiliHelper — 从 Bilibili 视频提取字幕为结构化 JSON。
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 import subprocess
 import tempfile
-import time
 from pathlib import Path
-from typing import Optional
 
 # ---------------------------------------------------------------------------
 # 路径 & 常量
@@ -99,6 +98,7 @@ def _run_ytdlp(args: list[str], timeout: int = 120) -> subprocess.CompletedProce
             encoding="utf-8",
             errors="replace",
             env=env,
+            check=False,
         )
     except subprocess.TimeoutExpired:
         raise NetworkError(f"yt-dlp 超时 ({timeout}s)") from None
@@ -106,7 +106,7 @@ def _run_ytdlp(args: list[str], timeout: int = 120) -> subprocess.CompletedProce
         raise BiliHelperError(f"找不到 yt-dlp: {_YTDLP}\n请先运行: uv sync") from None
 
 
-def _cookies_arg(cookies: Optional[str] = None) -> list[str]:
+def _cookies_arg(cookies: str | None = None) -> list[str]:
     if cookies is None:
         return []
     p = Path(cookies)
@@ -163,7 +163,7 @@ def parse_srt(text: str) -> list[dict]:
 # ---------------------------------------------------------------------------
 
 
-def get_parts(url: str, cookies: Optional[str] = None) -> tuple[list[dict], str]:
+def get_parts(url: str, cookies: str | None = None) -> tuple[list[dict], str]:
     """列出所有分P。
 
     Returns:
@@ -211,8 +211,8 @@ def get_parts(url: str, cookies: Optional[str] = None) -> tuple[list[dict], str]
 
 def get_subtitles(
     url: str,
-    cookies: Optional[str] = None,
-    prefer_langs: Optional[list[str]] = None,
+    cookies: str | None = None,
+    prefer_langs: list[str] | None = None,
 ) -> dict:
     """一键提取视频所有分P的字幕。
 
@@ -250,7 +250,6 @@ def get_subtitles(
 
     # ── Step 2: 批量下载所有分P 字幕 ─────────────────────────────
     with tempfile.TemporaryDirectory(prefix="bili_helper_") as tmpdir:
-        is_bv_url = "/video/BV" in url or "/video/bv" in url.lower()
         bv_id = _extract_bv_from_url(url)
 
         # 模板: yt-dlp 产出 001_BVxxxxx.ai-zh.srt 这类文件
@@ -276,7 +275,7 @@ def get_subtitles(
 
         # 多P 视频需要更长的超时（每P 约 3-5秒）
         dl_timeout = max(120, total_parts * 10)
-        dl_result = _run_ytdlp(dl_args, timeout=dl_timeout)
+        _run_ytdlp(dl_args, timeout=dl_timeout)
 
         # ── Step 3: 解析下载的 SRT 文件 ───────────────────────────
         # 按 part_number 分组: {1: [("zh", entries)], 2: [("en", entries)], ...}
@@ -325,7 +324,7 @@ def get_subtitles(
             if candidates:
                 # 按 prefer_langs 选出最佳字幕
                 chosen_lang = None
-                chosen_entries = None
+                chosen_entries: list[dict] = []
                 for lang in prefer_langs:
                     for cl, entries in candidates:
                         if cl == lang:
@@ -372,8 +371,8 @@ def get_subtitles(
 
 def get_subtitles_flat(
     url: str,
-    cookies: Optional[str] = None,
-    prefer_langs: Optional[list[str]] = None,
+    cookies: str | None = None,
+    prefer_langs: list[str] | None = None,
 ) -> list[dict]:
     """与 get_subtitles 相同，但把所有分P 的条目拼成一个大数组。
 
@@ -397,8 +396,8 @@ def get_subtitles_flat(
 
 def get_subtitles_stream(
     url: str,
-    cookies: Optional[str] = None,
-    prefer_langs: Optional[list[str]] = None,
+    cookies: str | None = None,
+    prefer_langs: list[str] | None = None,
 ):
     """流式提取字幕，每处理完一个分P 立即 yield。
 
@@ -449,8 +448,10 @@ def get_subtitles_stream(
                         m = re.search(r"\bp\d+\s+(.*)", full_title)
                         real_title = m.group(1) if m else full_title
                     real_duration = info.get("duration") or real_duration
-            except Exception:
-                pass
+            except (NetworkError, BiliHelperError, json.JSONDecodeError):
+                logging.getLogger(__name__).warning(
+                    "获取分P详情失败，使用默认标题/时长"
+                )
 
             # ----- 下载字幕（不用 --print，避免冲突）-----
             tmpl = str(Path(tmpdir) / f"{pn:03d}_%(display_id)s")
@@ -473,7 +474,7 @@ def get_subtitles_stream(
             )
 
             try:
-                dl_result = _run_ytdlp(dl_args, timeout=120)
+                _run_ytdlp(dl_args, timeout=120)
             except (NetworkError, BiliHelperError):
                 all_subs = False
                 yield {
@@ -503,7 +504,7 @@ def get_subtitles_stream(
 
             if candidates:
                 chosen_lang = None
-                chosen_entries = None
+                chosen_entries: list[dict] = []
                 for lang in prefer_langs:
                     for cl, entries in candidates:
                         if cl == lang:
@@ -594,5 +595,7 @@ if __name__ == "__main__":
             print(out)
 
     except BiliHelperError as e:
-        print(f"[错误] {e}", file=__import__("sys").stderr)
+        import sys
+
+        print(f"[错误] {e}", file=sys.stderr)
         raise SystemExit(1)

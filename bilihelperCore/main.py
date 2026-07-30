@@ -30,6 +30,8 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
+    out = ""
+
     try:
         if args.stream:
             for item in get_subtitles_stream(args.url, cookies=args.cookies):
