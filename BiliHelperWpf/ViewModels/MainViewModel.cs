@@ -14,6 +14,7 @@ namespace BiliHelperWpf.ViewModels;
 public class MainViewModel : ViewModelBase
 {
     private readonly BiliService _biliService = new();
+    private readonly AiReadService _aiReadService = new();
     private CancellationTokenSource? _cts;
 
     // ── 输入 ────────────────────────────────────────────────
@@ -97,11 +98,29 @@ public class MainViewModel : ViewModelBase
         get => _selectedPart;
         set
         {
+            var oldPart = _selectedPart;
             if (SetProperty(ref _selectedPart, value))
             {
+                // 记住旧分P 最后使用的 TAB
+                if (oldPart != null)
+                    _partTabMemory[oldPart.PartNumber] = _selectedSubtitleTab;
+
+                // 恢复新分P 记忆中的 TAB（无记忆则回默认第一个 tab「原始字幕」）
+                if (value != null)
+                {
+                    var tab = _partTabMemory.TryGetValue(value.PartNumber, out var t)
+                        ? t
+                        : TabOriginal;
+                    if (tab != _selectedSubtitleTab)
+                        SelectedSubtitleTab = tab;
+                }
+
                 ApplyFilter();
                 OnPropertyChanged(nameof(IsOriginalSubtitleVisible));
-                OnPropertyChanged(nameof(IsAiProofSubtitleVisible));
+                OnPropertyChanged(nameof(IsFullTextVisible));
+                OnPropertyChanged(nameof(ShowAiReadEmptyCard));
+                OnPropertyChanged(nameof(IsCurrentPartAiReadBusy));
+                LoadAiReadForSelectedPart();
             }
         }
     }
@@ -148,6 +167,13 @@ public class MainViewModel : ViewModelBase
     }
 
     // ── 字幕 TAB ────────────────────────────────────────────
+    /// <summary>TAB 索引常量。</summary>
+    public const int TabOriginal = 0;
+    public const int TabFullText = 1;
+
+    /// <summary>按分P 记忆最后使用的 TAB 索引（分P号 → tab）。</summary>
+    private readonly Dictionary<int, int> _partTabMemory = new();
+
     private int _selectedSubtitleTab;
     public int SelectedSubtitleTab
     {
@@ -156,14 +182,72 @@ public class MainViewModel : ViewModelBase
         {
             if (SetProperty(ref _selectedSubtitleTab, value))
             {
+                // 记录当前分P 最后使用的 TAB（切分P 时恢复用）
+                if (SelectedPart != null)
+                    _partTabMemory[SelectedPart.PartNumber] = value;
+
                 OnPropertyChanged(nameof(IsOriginalSubtitleVisible));
-                OnPropertyChanged(nameof(IsAiProofSubtitleVisible));
+                OnPropertyChanged(nameof(IsFullTextVisible));
             }
         }
     }
 
-    public bool IsOriginalSubtitleVisible => SelectedPart != null && SelectedSubtitleTab == 0;
-    public bool IsAiProofSubtitleVisible => SelectedPart != null && SelectedSubtitleTab == 1;
+    public bool IsOriginalSubtitleVisible => SelectedPart != null && SelectedSubtitleTab == TabOriginal;
+    public bool IsFullTextVisible => SelectedPart != null && SelectedSubtitleTab == TabFullText;
+
+    // ── AI 整理（原始全文 TAB）────────────────────────────────
+    private List<Paragraph> _aiParagraphs = [];
+
+    /// <summary>当前分P 的 AI 整理段落（只读展示用）。</summary>
+    public IReadOnlyList<Paragraph> AiParagraphs => _aiParagraphs;
+
+    public bool HasAiParagraphs => _aiParagraphs.Count > 0;
+
+    /// <summary>
+    /// 是否显示未整理空卡片（有选中分P 且该分P 尚未 AI 整理）。
+    /// </summary>
+    public bool ShowAiReadEmptyCard => SelectedPart != null && !HasAiParagraphs;
+
+    // ── AI 整理并发状态（按分P 维护，支持多个分P 并行整理）──
+    private readonly Dictionary<int, CancellationTokenSource> _aiReadCtsMap = new();
+    private readonly Dictionary<int, string> _aiReadProgress = new();
+    private readonly HashSet<int> _aiReadBusyParts = new();
+
+    /// <summary>
+    /// 当前选中分P 是否正在 AI 整理（按钮隐藏/进度显示依据）。
+    /// </summary>
+    public bool IsCurrentPartAiReadBusy =>
+        SelectedPart != null && _aiReadBusyParts.Contains(SelectedPart.PartNumber);
+
+    /// <summary>
+    /// 兼容属性：当前选中分P 是否正在 AI 整理（XAML 按钮隐藏绑定用）。
+    /// </summary>
+    public bool IsAiReadBusy => IsCurrentPartAiReadBusy;
+
+    public bool CanAiRead =>
+        SelectedPart != null && VideoInfo != null
+        && !IsCurrentPartAiReadBusy && !HasAiParagraphs;
+
+    private string _aiReadStatus = string.Empty;
+    public string AiReadStatus
+    {
+        get => _aiReadStatus;
+        set => SetProperty(ref _aiReadStatus, value);
+    }
+
+    private bool _aiReadError;
+    public bool AiReadError
+    {
+        get => _aiReadError;
+        set => SetProperty(ref _aiReadError, value);
+    }
+
+    private string _aiReadErrorMessage = string.Empty;
+    public string AiReadErrorMessage
+    {
+        get => _aiReadErrorMessage;
+        set => SetProperty(ref _aiReadErrorMessage, value);
+    }
 
     // ── 历史记录 ────────────────────────────────────────────
     private bool _isHistoryOpen;
@@ -179,6 +263,7 @@ public class MainViewModel : ViewModelBase
     public ICommand FetchCommand { get; }
     public ICommand ToggleHistoryCommand { get; }
     public ICommand LoadFromHistoryCommand { get; }
+    public ICommand AiReadCommand { get; }
 
     public MainViewModel()
     {
@@ -189,6 +274,7 @@ public class MainViewModel : ViewModelBase
             if (param is HistoryItem item)
                 await LoadHistoryItem(item);
         });
+        AiReadCommand = new RelayCommand(async _ => await GenerateReadAsync(), _ => CanAiRead);
     }
 
     /// <summary>
@@ -239,6 +325,7 @@ public class MainViewModel : ViewModelBase
         ProgressText = string.Empty;
         SelectedPart = null;
         FilteredEntries.Clear();
+        ResetAiReadState();
         StatusMessage = $"📂 已从历史加载 · {info.Title} · 共 {info.TotalParts}P · {info.TotalSubtitleCount} 条字幕";
 
         // 赋值到 UI，null 再赋值强制刷新
@@ -275,6 +362,7 @@ public class MainViewModel : ViewModelBase
         VideoInfo = null;
         SelectedPart = null;
         FilteredEntries.Clear();
+        ResetAiReadState();
 
         // 先准备好空的 VideoInfo，onMeta 时赋值并绑定 UI，后续 onPart 直接追加
         var info = new BiliVideoInfo();
@@ -438,6 +526,212 @@ public class MainViewModel : ViewModelBase
     private void SelectPart(PartInfo part)
     {
         SelectedPart = part;
+    }
+
+    /// <summary>
+    /// 重置 AI 整理状态（新加载视频/历史时调用）。
+    /// </summary>
+    private void ResetAiReadState()
+    {
+        // 取消所有进行中的 AI 整理
+        foreach (var cts in _aiReadCtsMap.Values)
+            cts.Cancel();
+        _aiReadCtsMap.Clear();
+        _aiReadProgress.Clear();
+        _aiReadBusyParts.Clear();
+        // 清空分P TAB 记忆（加载新视频/历史时避免旧分P 记忆串台）
+        _partTabMemory.Clear();
+        App.Log("AI 整理状态已重置（取消进行中的任务）");
+        _aiParagraphs = [];
+        AiReadStatus = string.Empty;
+        AiReadError = false;
+        AiReadErrorMessage = string.Empty;
+        OnPropertyChanged(nameof(AiParagraphs));
+        OnPropertyChanged(nameof(HasAiParagraphs));
+        OnPropertyChanged(nameof(ShowAiReadEmptyCard));
+        OnPropertyChanged(nameof(IsCurrentPartAiReadBusy));
+        OnPropertyChanged(nameof(CanAiRead));
+    }
+
+    /// <summary>
+    /// 切换分P 时从 read.json 加载对应分P 的已整理段落。
+    /// 未整理过则显示空状态（等待手动点击 AI 整理）。
+    /// </summary>
+    private void LoadAiReadForSelectedPart()
+    {
+        if (SelectedPart == null || VideoInfo == null)
+        {
+            _aiParagraphs = [];
+            AiReadStatus = string.Empty;
+            AiReadError = false;
+            AiReadErrorMessage = string.Empty;
+        }
+        else
+        {
+            var partNumber = SelectedPart.PartNumber;
+
+            // 正在整理中：显示进度，不读缓存
+            if (_aiReadBusyParts.Contains(partNumber))
+            {
+                _aiParagraphs = [];
+                AiReadStatus = _aiReadProgress.TryGetValue(partNumber, out var p)
+                    ? p
+                    : "正在启动 AI 整理...";
+                AiReadError = false;
+                AiReadErrorMessage = string.Empty;
+                App.Log($"AI 阅读数据加载: bvId={VideoInfo.BvId}, part={partNumber}, 正在整理中");
+            }
+            else
+            {
+                var parts = HistoryService.LoadReadParts(VideoInfo.BvId);
+                var part = parts?.FirstOrDefault(p => p.PartNumber == partNumber);
+                _aiParagraphs = part?.Paragraphs ?? [];
+                AiReadStatus = part != null
+                    ? $"✅ 已整理 · {part.Paragraphs.Count} 个段落"
+                    : string.Empty;
+                AiReadError = false;
+                AiReadErrorMessage = string.Empty;
+                App.Log($"AI 阅读数据加载: bvId={VideoInfo.BvId}, part={partNumber}, "
+                        + $"{(part != null ? $"已缓存 {part.Paragraphs.Count} 段" : "无缓存，待手动整理")}");
+            }
+        }
+        OnPropertyChanged(nameof(AiParagraphs));
+        OnPropertyChanged(nameof(HasAiParagraphs));
+        OnPropertyChanged(nameof(ShowAiReadEmptyCard));
+        OnPropertyChanged(nameof(IsCurrentPartAiReadBusy));
+        OnPropertyChanged(nameof(CanAiRead));
+    }
+
+    /// <summary>
+    /// AI 整理当前分P：调用 DeepSeek，成功后保存 read.json 并刷新展示。
+    /// 期间不阻塞 UI，可随时取消（IsAiReadBusy 期间按钮禁用）。
+    /// </summary>
+    private async Task GenerateReadAsync()
+    {
+        var part = SelectedPart;
+        if (part == null || VideoInfo == null)
+        {
+            App.Log($"AI 整理被跳过: part空={part == null}, video空={VideoInfo == null}");
+            return;
+        }
+
+        var partNumber = part.PartNumber;
+        if (_aiReadBusyParts.Contains(partNumber))
+        {
+            App.Log($"AI 整理被跳过: P{partNumber} 已在整理中");
+            return;
+        }
+
+        App.Log($"AI 整理开始: bvId={VideoInfo.BvId}, part={partNumber}, subtitleCount={part.SubtitleCount}");
+
+        // 每个分P 独立的 CTS，互不取消，支持并发
+        var cts = new CancellationTokenSource();
+        _aiReadCtsMap[partNumber] = cts;
+        _aiReadBusyParts.Add(partNumber);
+        _aiReadProgress[partNumber] = "正在启动 AI 整理...";
+
+        AiReadError = false;
+        AiReadErrorMessage = string.Empty;
+        AiReadStatus = "正在启动 AI 整理...";
+        OnPropertyChanged(nameof(IsCurrentPartAiReadBusy));
+        OnPropertyChanged(nameof(CanAiRead));
+
+        var ui = App.Current.Dispatcher;
+
+        try
+        {
+            var progress = new Progress<string>();
+            progress.ProgressChanged += (_, text) =>
+            {
+                // 每P 进度存入字典；仅当前选中的分P 刷新状态文本
+                _aiReadProgress[partNumber] = text;
+                if (SelectedPart?.PartNumber == partNumber)
+                    AiReadStatus = text;
+            };
+
+            await Task.Run(async () =>
+            {
+                App.Log($"AI 整理启动子进程: bvId={VideoInfo.BvId}, part={partNumber}");
+                await _aiReadService.GenerateReadDataAsync(
+                    VideoInfo!.BvId,
+                    partNumber,
+                    onComplete: paragraphs =>
+                    {
+                        App.Log($"AI 整理完成回调: bvId={VideoInfo.BvId}, part={partNumber}, 段落数={paragraphs.Count}");
+
+                        // 无条件保存（SaveReadPart 内部加锁，并发安全）
+                        var partData = new ReadPartData
+                        {
+                            PartNumber = partNumber,
+                            SubtitleCount = part.SubtitleCount,
+                            Paragraphs = paragraphs,
+                        };
+                        HistoryService.SaveReadPart(VideoInfo!.BvId, partData);
+                        App.Log($"AI 阅读数据已保存: bvId={VideoInfo.BvId}, part={partNumber}, "
+                                + $"段落数={partData.Paragraphs.Count}, 字幕条数={partData.SubtitleCount}");
+
+                        // 仅当前选中的分P 才刷新 UI（在 UI 线程内校验，避免切分P 竞态串台）
+                        ui.Invoke(() =>
+                        {
+                            if (SelectedPart?.PartNumber != partNumber)
+                                return;
+                            _aiParagraphs = paragraphs;
+                            OnPropertyChanged(nameof(AiParagraphs));
+                            OnPropertyChanged(nameof(HasAiParagraphs));
+                            OnPropertyChanged(nameof(ShowAiReadEmptyCard));
+                            AiReadStatus = $"✅ 已整理 · {paragraphs.Count} 个段落";
+                        });
+                    },
+                    onError: msg =>
+                    {
+                        App.Log($"AI 整理失败回调: bvId={VideoInfo.BvId}, part={partNumber}, 错误={msg}");
+                        // 仅当前选中的分P 才刷新 UI（在 UI 线程内校验，避免切分P 竞态串台）
+                        ui.Invoke(() =>
+                        {
+                            if (SelectedPart?.PartNumber != partNumber)
+                                return;
+                            AiReadError = true;
+                            AiReadErrorMessage = msg;
+                            AiReadStatus = "❌ 整理失败";
+                        });
+                    },
+                    progress: progress,
+                    ct: cts.Token);
+            }, cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            if (SelectedPart?.PartNumber == partNumber)
+                AiReadStatus = "已取消";
+            App.Log($"AI 整理被取消: bvId={VideoInfo?.BvId}, part={partNumber}");
+        }
+        catch (Exception ex)
+        {
+            if (SelectedPart?.PartNumber == partNumber)
+            {
+                AiReadError = true;
+                AiReadErrorMessage = ex.Message;
+                AiReadStatus = "❌ 整理失败";
+            }
+            App.Log($"AI 整理异常: bvId={VideoInfo?.BvId}, part={partNumber}, {ex}");
+        }
+        finally
+        {
+            // 清理该分P 的并发状态
+            _aiReadCtsMap.Remove(partNumber);
+            _aiReadBusyParts.Remove(partNumber);
+            _aiReadProgress.Remove(partNumber);
+
+            // 若用户仍停留在该分P，刷新按钮/进度并重新加载缓存
+            if (SelectedPart?.PartNumber == partNumber)
+            {
+                OnPropertyChanged(nameof(IsCurrentPartAiReadBusy));
+                OnPropertyChanged(nameof(CanAiRead));
+                LoadAiReadForSelectedPart();
+            }
+
+            App.Log($"AI 整理流程结束: bvId={VideoInfo?.BvId}, part={partNumber}");
+        }
     }
 
     private void ApplyFilter()

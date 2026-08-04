@@ -30,6 +30,12 @@ public static class HistoryService
 {
     private static readonly string HistoryDir;
 
+    /// <summary>
+    /// 保护 read.json 的"读-合并-写回"原子性。
+    /// AI 多个分P 并行整理完成时，防止并发写导致的丢数据。
+    /// </summary>
+    private static readonly object _readFileLock = new();
+
     static HistoryService()
     {
         // 优先放在 WPF 项目根目录（开发时），否则放在 exe 同级（发布后）
@@ -180,6 +186,94 @@ public static class HistoryService
         {
             App.Log($"加载历史数据失败: {ex.Message}");
             return null;
+        }
+    }
+
+    /// <summary>
+    /// 查找指定 BV ID 的 raw.json 完整路径（扫描所有日期文件夹）。
+    /// 目录结构: history/YYYYMMDD/BVxxx/raw.json；不存在返回 null。
+    /// </summary>
+    public static string? FindRawJson(string bvId)
+    {
+        return FindByBvId(bvId);
+    }
+
+    /// <summary>
+    /// 加载指定 BV ID 的 AI 阅读数据（read.json）。
+    /// 返回 parts 列表（仅包含已整理的分P）；无 read.json 或解析失败返回 null。
+    /// </summary>
+    public static List<ReadPartData>? LoadReadParts(string bvId)
+    {
+        var rawPath = FindByBvId(bvId);
+        if (rawPath == null)
+            return null;
+
+        var readPath = Path.Combine(Path.GetDirectoryName(rawPath)!, "read.json");
+        if (!File.Exists(readPath))
+            return null;
+
+        try
+        {
+            var json = File.ReadAllText(readPath, System.Text.Encoding.UTF8);
+            using var doc = JsonDocument.Parse(json);
+            if (doc.RootElement.TryGetProperty("parts", out var partsElem)
+                && partsElem.ValueKind == JsonValueKind.Array)
+            {
+                return JsonSerializer.Deserialize<List<ReadPartData>>(partsElem.GetRawText());
+            }
+            return null;
+        }
+        catch (Exception ex)
+        {
+            App.Log($"加载阅读数据失败: {ex.Message}");
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// 增量保存单个分P 的 AI 阅读数据到 read.json。
+    /// 与 raw.json 同目录（history/YYYYMMDD/BVxxx/read.json）。
+    /// 已存在相同分P 时替换，其余分P 保留。
+    /// </summary>
+    public static void SaveReadPart(string bvId, ReadPartData part)
+    {
+        var rawPath = FindByBvId(bvId);
+        if (rawPath == null || part == null)
+            return;
+
+        var dir = Path.GetDirectoryName(rawPath);
+        if (string.IsNullOrEmpty(dir))
+            return;
+
+        var readPath = Path.Combine(dir, "read.json");
+
+        // 加锁保证"读-合并-写回"原子性：多个分P 并发完成时排队写，避免覆盖丢失
+        lock (_readFileLock)
+        {
+            var parts = LoadReadParts(bvId) ?? new List<ReadPartData>();
+            parts.RemoveAll(p => p.PartNumber == part.PartNumber);
+            parts.Add(part);
+            parts.Sort((a, b) => a.PartNumber.CompareTo(b.PartNumber));
+
+            var dataToSave = new { parts };
+            var options = new JsonSerializerOptions
+            {
+                WriteIndented = true,
+                Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+            };
+
+            try
+            {
+                File.WriteAllText(
+                    readPath,
+                    JsonSerializer.Serialize(dataToSave, options),
+                    System.Text.Encoding.UTF8);
+                App.Log($"阅读数据已保存: {readPath}");
+            }
+            catch (Exception ex)
+            {
+                App.Log($"保存阅读数据失败: {ex.Message}");
+            }
         }
     }
 

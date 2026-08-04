@@ -32,3 +32,11 @@ BiliHelperWpf/history/
 
 # Logs
 _log/
+
+# Environment (API keys)
+.env
+.env.*
+!.env.example
+
+# AiHelper test outputs
+BiliHelperCore/AiHelper/test_data/

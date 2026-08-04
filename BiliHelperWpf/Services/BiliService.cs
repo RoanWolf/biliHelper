@@ -18,6 +18,7 @@ public class BiliService
     private static readonly string ProjectRoot = FindProjectRoot();
     private static readonly string PythonScript = Path.Combine(ProjectRoot, "bilihelperCore", "main.py");
     private static readonly string CookieFile = Path.Combine(ProjectRoot, "bilihelperCore", "www.bilibili.com_cookies.txt");
+    private static readonly string PythonExe = Path.Combine(ProjectRoot, "bilihelperCore", ".venv", "Scripts", "python.exe");
 
     /// <summary>
     /// 流式获取字幕。
@@ -43,8 +44,8 @@ public class BiliService
 
         var psi = new ProcessStartInfo
         {
-            FileName = "uv",
-            Arguments = $"run python \"{PythonScript}\" \"{url}\" -c \"{CookieFile}\" --stream",
+            FileName = PythonExe,
+            Arguments = $"\"{PythonScript}\" \"{url}\" -c \"{CookieFile}\" --stream",
             WorkingDirectory = ProjectRoot,
             UseShellExecute = false,
             RedirectStandardOutput = true,

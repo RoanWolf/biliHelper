@@ -1,6 +1,9 @@
-﻿using System.Windows;
+﻿using System;
+using System.Runtime.InteropServices;
+using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Shapes;
@@ -23,8 +26,14 @@ public partial class MainWindow : Window
         Icon = new System.Windows.Media.Imaging.BitmapImage(
             new Uri("pack://application:,,,/Assets/logo.png"));
 
+        // Windows 11 DWM 原生圆角（句柄可用后生效）
+        SourceInitialized += (_, _) => ApplyWindowCornerRoundness();
+
         // 监听窗口状态变化，切换最大化/还原图标
         StateChanged += OnWindowStateChanged;
+
+        // 最大化/还原时同步圆角/直角
+        StateChanged += (_, _) => OnWindowStateChangedForCorner();
 
         // 切换分P时自动滚动字幕列表到顶部
         _vm.PropertyChanged += (_, e) =>
@@ -82,16 +91,16 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// 切换字幕 TAB（原始字幕 / AI校对字幕）。
+    /// 切换字幕 TAB（原始字幕 / 原始全文）。
     /// </summary>
     private void SubtitleTab_PreviewMouseDown(object sender, MouseButtonEventArgs e)
     {
         if (sender is Border border)
         {
-            if (border.Name == "TabAiProof")
-                _vm.SelectedSubtitleTab = 1;
-            else if (border.Name == "TabOriginal")
-                _vm.SelectedSubtitleTab = 0;
+            if (border.Name == "TabOriginal")
+                _vm.SelectedSubtitleTab = MainViewModel.TabOriginal;
+            else if (border.Name == "TabFullText")
+                _vm.SelectedSubtitleTab = MainViewModel.TabFullText;
         }
     }
 
@@ -139,5 +148,60 @@ public partial class MainWindow : Window
         Close();
     }
 
+    // ── Windows 11 DWM 原生圆角 ─────────────────────────────────
+    private const int DWMWA_WINDOW_CORNER_PREFERENCE = 33;
+
+    private enum DWM_WINDOW_CORNER_PREFERENCE
+    {
+        DWMWCP_DEFAULT = 0,
+        DWMWCP_DONOTROUND = 1,
+        DWMWCP_ROUND = 2,
+        DWMWCP_ROUNDSMALL = 3,
+    }
+
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmSetWindowAttribute(
+        IntPtr hwnd,
+        int attr,
+        ref int attrValue,
+        int attrSize);
+
+    /// <summary>
+    /// 应用系统原生圆角（仅 Windows 11 生效，Windows 10 及以下自动忽略）。
+    /// 最大化时恢复直角，还原时恢复圆角。
+    /// </summary>
+    private void ApplyWindowCornerRoundness()
+    {
+        try
+        {
+            var hwnd = new WindowInteropHelper(this).Handle;
+            if (hwnd == IntPtr.Zero)
+                return;
+
+            // 最大化时不圆角（系统行为），还原/普通态圆角
+            var preference = WindowState == WindowState.Maximized
+                ? (int)DWM_WINDOW_CORNER_PREFERENCE.DWMWCP_DONOTROUND
+                : (int)DWM_WINDOW_CORNER_PREFERENCE.DWMWCP_ROUND;
+
+            DwmSetWindowAttribute(
+                hwnd,
+                DWMWA_WINDOW_CORNER_PREFERENCE,
+                ref preference,
+                sizeof(int));
+        }
+        catch
+        {
+            // 非 Windows 11 / 平台不支持时静默忽略
+        }
+    }
+
+    /// <summary>
+    /// 窗口状态变化时同步圆角/直角（最大化直角，还原圆角）。
+    /// </summary>
+    private void OnWindowStateChangedForCorner()
+    {
+        if (new WindowInteropHelper(this).Handle != IntPtr.Zero)
+            ApplyWindowCornerRoundness();
+    }
 
 }

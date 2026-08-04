@@ -550,6 +550,7 @@
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="Auto" />
                                     <ColumnDefinition Width="*" />
                                 </Grid.ColumnDefinitions>
                                 <!-- 原始字幕 TAB -->
@@ -587,9 +588,9 @@
                                         </TextBlock.Style>
                                     </TextBlock>
                                 </Border>
-                                <!-- AI校对字幕 TAB -->
+                                <!-- 原始全文 TAB -->
                                 <Border Grid.Column="1"
-                                        x:Name="TabAiProof"
+                                        x:Name="TabFullText"
                                         PreviewMouseDown="SubtitleTab_PreviewMouseDown"
                                         Background="Transparent"
                                         Padding="16,8,16,8"
@@ -608,7 +609,7 @@
                                             </Style.Triggers>
                                         </Style>
                                     </Border.Style>
-                                    <TextBlock Text="AI校对字幕"
+                                    <TextBlock Text="AI润色"
                                                FontSize="13">
                                         <TextBlock.Style>
                                             <Style TargetType="TextBlock">
@@ -624,6 +625,7 @@
                                         </TextBlock.Style>
                                     </TextBlock>
                                 </Border>
+
                             </Grid>
                         </Border>
 
@@ -715,20 +717,126 @@
                             </Grid>
                         </Grid>
 
-                        <!-- AI 校对字幕占位（SelectedSubtitleTab == 1） -->
-                        <Grid Grid.Row="1" Visibility="{Binding IsAiProofSubtitleVisible, Converter={StaticResource BoolToVis}}">
-                            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
-                                <TextBlock Text="🤖" FontSize="40" HorizontalAlignment="Center" />
-                                <TextBlock Text="AI 校对字幕"
-                                           FontSize="15" FontWeight="SemiBold"
-                                           Foreground="{StaticResource TextSecondaryBrush}"
-                                           HorizontalAlignment="Center" Margin="0,12,0,0" />
-                                <TextBlock Text="功能开发中，敬请期待"
-                                           FontSize="12"
-                                           Foreground="{StaticResource TextMutedBrush}"
-                                           HorizontalAlignment="Center" Margin="0,6,0,0" />
-                            </StackPanel>
+                        <!-- AI润色内容（SelectedSubtitleTab == 1） -->
+                        <Grid Grid.Row="1" Visibility="{Binding IsFullTextVisible, Converter={StaticResource BoolToVis}}">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />  <!-- 错误 -->
+                                <RowDefinition Height="Auto" />  <!-- 无选中分P占位 -->
+                                <RowDefinition Height="*" />     <!-- 内容区：未整理卡片 / 段落列表 -->
+                            </Grid.RowDefinitions>
+
+                            <!-- 错误提示 -->
+                            <Border Grid.Row="0" Background="#FFF1F0"
+                                    BorderBrush="{StaticResource ErrorBrush}" BorderThickness="0,0,0,1"
+                                    Padding="12,8"
+                                    Visibility="{Binding AiReadError, Converter={StaticResource BoolToVis}}">
+                                <StackPanel>
+                                    <TextBlock Text="AI 整理失败"
+                                               FontSize="12" FontWeight="SemiBold"
+                                               Foreground="{StaticResource ErrorBrush}" />
+                                    <TextBlock Text="{Binding AiReadErrorMessage}"
+                                               FontSize="11" Foreground="{StaticResource ErrorBrush}"
+                                               TextWrapping="Wrap" Margin="0,2,0,0" />
+                                </StackPanel>
+                            </Border>
+
+                            <!-- 无选中分P时的占位 -->
+                            <TextBlock Grid.Row="1"
+                                       Text="← 从左侧选择一个分P"
+                                       FontSize="14" Foreground="{StaticResource TextMutedBrush}"
+                                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                                       Visibility="{Binding SelectedPart, Converter={StaticResource NullToVis}, ConverterParameter=Invert}" />
+
+                            <!-- 未整理时的占位（有选中分P，但还没有 AI 段落） -->
+                            <Border Grid.Row="2"
+                                    Background="{StaticResource SurfaceBrush}"
+                                    BorderBrush="{StaticResource BorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="10"
+                                    Padding="48,36"
+                                    MaxWidth="400"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    Visibility="{Binding ShowAiReadEmptyCard, Converter={StaticResource BoolToVis}}">
+                                <StackPanel HorizontalAlignment="Center">
+                                    <TextBlock Text="📄"
+                                               FontSize="44"
+                                               HorizontalAlignment="Center" />
+                                    <TextBlock Text="该分P 尚未进行 AI 整理"
+                                               FontSize="16" FontWeight="SemiBold"
+                                               Foreground="{StaticResource TextPrimaryBrush}"
+                                               HorizontalAlignment="Center"
+                                               Margin="0,16,0,0" />
+                                    <TextBlock Text="AI 将修正错别字、添加标点并分段，生成适合阅读的全文"
+                                               FontSize="12"
+                                               Foreground="{StaticResource TextMutedBrush}"
+                                               TextWrapping="Wrap"
+                                               TextAlignment="Center"
+                                               HorizontalAlignment="Center"
+                                               Margin="0,8,0,0" />
+                                    <!-- 整理中隐藏按钮，进度文本显示在按钮下方 -->
+                                    <Button Content="✨ 立即整理当前分P"
+                                            Command="{Binding AiReadCommand}"
+                                            Height="36"
+                                            Padding="20,0"
+                                            Margin="0,20,0,0"
+                                            FontSize="13" FontWeight="SemiBold"
+                                            Cursor="Hand" BorderThickness="0"
+                                            HorizontalAlignment="Center"
+                                            Visibility="{Binding IsAiReadBusy, Converter={StaticResource InverseBoolToVis}}">
+                                        <Button.Style>
+                                            <Style TargetType="Button">
+                                                <Setter Property="Background" Value="{StaticResource PrimaryBrush}" />
+                                                <Setter Property="Foreground" Value="White" />
+                                                <Style.Triggers>
+                                                    <Trigger Property="IsEnabled" Value="False">
+                                                        <Setter Property="Background" Value="#E5E6EB" />
+                                                        <Setter Property="Foreground" Value="#86909C" />
+                                                    </Trigger>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter Property="Background" Value="{StaticResource PrimaryHoverBrush}" />
+                                                    </Trigger>
+                                                    <Trigger Property="IsPressed" Value="True">
+                                                        <Setter Property="Background" Value="{StaticResource PrimaryPressedBrush}" />
+                                                    </Trigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Button.Style>
+                                    </Button>
+                                    <TextBlock Text="{Binding AiReadStatus}"
+                                               FontSize="12"
+                                               Foreground="{StaticResource TextSecondaryBrush}"
+                                               HorizontalAlignment="Center"
+                                               Margin="0,14,0,0"
+                                               TextWrapping="Wrap" />
+                                </StackPanel>
+                            </Border>
+
+                            <!-- 段落列表（已整理的阅读版） -->
+                            <ScrollViewer Grid.Row="2"
+                                          VerticalScrollBarVisibility="Auto"
+                                          HorizontalScrollBarVisibility="Disabled"
+                                          Padding="24,16"
+                                          Background="Transparent"
+                                          Visibility="{Binding HasAiParagraphs, Converter={StaticResource BoolToVis}}">
+                                <ItemsControl ItemsSource="{Binding AiParagraphs}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <StackPanel Margin="0,0,0,18">
+                                                <TextBlock Text="{Binding Text}"
+                                                           FontSize="15" LineHeight="28" TextWrapping="Wrap"
+                                                           Foreground="{StaticResource TextPrimaryBrush}" />
+                                                <TextBlock Text="{Binding SourceStartIndex, StringFormat='↳ 字幕 #{0}'}"
+                                                           FontSize="11" Foreground="{StaticResource TextMutedBrush}"
+                                                           Margin="0,4,0,0" />
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
                         </Grid>
+
+
                     </Grid>
                 </Border>
             </Grid>
