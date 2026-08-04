@@ -14,9 +14,7 @@ biliHelper/
 │   ├── analyze_sub.py             字幕分析工具
 │   ├── AiHelper/                  AI 模块（DeepSeek）
 │   │   ├── reading.py             AIClient 封装 + .env 加载
-│   │   ├── ai_read.py             单分P AI 润色脚本（供 WPF 子进程调用）
-│   │   ├── test_deepseek.py       AI 调用测试脚本
-│   │   └── analyze_raw_size.py    大 raw.json 结构统计（评估分块策略）
+│   │   └── ai_read.py             单分P AI 润色脚本（供 WPF 子进程调用）
 │   ├── pyproject.toml             uv 项目配置（依赖 openai + yt-dlp）
 │   ├── uv.lock                    依赖锁
 │   ├── .venv/                     虚拟环境（含 yt-dlp、openai）
