@@ -22,6 +22,8 @@ public partial class MainWindow : Window
         DataContext = new MainViewModel();
         _vm = (MainViewModel)DataContext;
 
+        UpdateThemeIcon();
+
         // 设置任务栏图标
         Icon = new System.Windows.Media.Imaging.BitmapImage(
             new Uri("pack://application:,,,/Assets/logo.png"));
@@ -146,6 +148,21 @@ public partial class MainWindow : Window
     private void CloseButton_Click(object sender, RoutedEventArgs e)
     {
         Close();
+    }
+
+    /// <summary>
+    /// 切换主题（浅色/深色）并更新按钮图标。
+    /// </summary>
+    private void ThemeToggleButton_Click(object sender, RoutedEventArgs e)
+    {
+        ThemeManager.Toggle();
+        UpdateThemeIcon();
+    }
+
+    private void UpdateThemeIcon()
+    {
+        if (ThemeToggleIcon != null)
+            ThemeToggleIcon.Text = ThemeManager.IsDark ? "🌙" : "☀️";
     }
 
     // ── Windows 11 DWM 原生圆角 ─────────────────────────────────

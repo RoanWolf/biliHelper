@@ -39,6 +39,9 @@ public partial class App : Application
         Log($"工作目录: {Environment.CurrentDirectory}");
         Log($"程序路径: {Environment.ProcessPath}");
 
+        // 恢复上次保存的主题选择
+        ThemeManager.LoadPersisted();
+
         // UI 线程未捕获异常
         DispatcherUnhandledException += (_, args) =>
         {

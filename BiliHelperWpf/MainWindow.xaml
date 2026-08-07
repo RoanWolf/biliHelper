@@ -12,10 +12,10 @@
         WindowStartupLocation="CenterScreen"
         WindowStyle="None"
         ResizeMode="CanResizeWithGrip"
-        Background="#F7F8FA"
+        Background="{DynamicResource BackgroundBrush}"
         FontFamily="pack://application:,,,/BiliHelperWpf;component/Assets/#Lilex Duo, Microsoft YaHei, PingFang SC, sans-serif"
         FontSize="14"
-        Foreground="#1F2329"
+        Foreground="{DynamicResource TextPrimaryBrush}"
         UseLayoutRounding="True">
     <shell:WindowChrome.WindowChrome>
         <shell:WindowChrome CaptionHeight="32"
@@ -26,40 +26,6 @@
     </shell:WindowChrome.WindowChrome>
 
     <Window.Resources>
-        <Color x:Key="BackgroundColor">#F7F8FA</Color>
-        <Color x:Key="SurfaceColor">#FFFFFF</Color>
-        <Color x:Key="SurfaceHoverColor">#F0F2F5</Color>
-        <Color x:Key="SurfaceSelectedColor">#E8F3FF</Color>
-        <Color x:Key="PrimaryColor">#FB7299</Color>
-        <Color x:Key="PrimaryHover">#FC8BAB</Color>
-        <Color x:Key="PrimaryPressed">#E85B82</Color>
-        <Color x:Key="TextPrimary">#1F2329</Color>
-        <Color x:Key="TextSecondary">#4E5969</Color>
-        <Color x:Key="TextMuted">#86909C</Color>
-        <Color x:Key="BorderColor">#E5E6EB</Color>
-        <Color x:Key="InputBg">#FFFFFF</Color>
-        <Color x:Key="StatusSuccess">#00B42A</Color>
-        <Color x:Key="StatusRunning">#165DFF</Color>
-        <Color x:Key="StatusWaiting">#86909C</Color>
-        <Color x:Key="StatusError">#F53F3F</Color>
-
-        <SolidColorBrush x:Key="BackgroundBrush" Color="{StaticResource BackgroundColor}" />
-        <SolidColorBrush x:Key="PrimaryBrush" Color="{StaticResource PrimaryColor}" />
-        <SolidColorBrush x:Key="PrimaryHoverBrush" Color="{StaticResource PrimaryHover}" />
-        <SolidColorBrush x:Key="PrimaryPressedBrush" Color="{StaticResource PrimaryPressed}" />
-        <SolidColorBrush x:Key="SurfaceBrush" Color="{StaticResource SurfaceColor}" />
-        <SolidColorBrush x:Key="SurfaceHoverBrush" Color="{StaticResource SurfaceHoverColor}" />
-        <SolidColorBrush x:Key="SurfaceSelectedBrush" Color="{StaticResource SurfaceSelectedColor}" />
-        <SolidColorBrush x:Key="TextPrimaryBrush" Color="{StaticResource TextPrimary}" />
-        <SolidColorBrush x:Key="TextSecondaryBrush" Color="{StaticResource TextSecondary}" />
-        <SolidColorBrush x:Key="TextMutedBrush" Color="{StaticResource TextMuted}" />
-        <SolidColorBrush x:Key="BorderBrush" Color="{StaticResource BorderColor}" />
-        <SolidColorBrush x:Key="InputBgBrush" Color="{StaticResource InputBg}" />
-        <SolidColorBrush x:Key="SuccessBrush" Color="{StaticResource StatusSuccess}" />
-        <SolidColorBrush x:Key="RunningBrush" Color="{StaticResource StatusRunning}" />
-        <SolidColorBrush x:Key="WaitingBrush" Color="{StaticResource StatusWaiting}" />
-        <SolidColorBrush x:Key="ErrorBrush" Color="{StaticResource StatusError}" />
-
         <conv:BoolToVisibilityConverter x:Key="BoolToVis" />
         <conv:BoolToVisibilityConverter x:Key="InverseBoolToVis" Inverted="True" />
         <conv:NullToVisibilityConverter x:Key="NullToVis" />
@@ -70,7 +36,7 @@
             <Setter Property="Width" Value="46" />
             <Setter Property="Height" Value="32" />
             <Setter Property="Background" Value="Transparent" />
-            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Template">
@@ -81,10 +47,10 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource SurfaceHoverBrush}" />
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="#D9DDE3" />
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource TitleBarPressedBrush}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -97,7 +63,7 @@
             <Setter Property="Width" Value="46" />
             <Setter Property="Height" Value="32" />
             <Setter Property="Background" Value="Transparent" />
-            <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Template">
@@ -108,11 +74,11 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="#E81123" />
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource CloseButtonHoverBrush}" />
                                 <Setter Property="Foreground" Value="White" />
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="#BF0F1D" />
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource CloseButtonPressedBrush}" />
                                 <Setter Property="Foreground" Value="White" />
                             </Trigger>
                         </ControlTemplate.Triggers>
@@ -126,6 +92,7 @@
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="Padding" Value="14,10" />
             <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ListBoxItem">
@@ -138,10 +105,10 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource SurfaceHoverBrush}" />
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
                             </Trigger>
                             <Trigger Property="IsSelected" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource SurfaceSelectedBrush}" />
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SurfaceSelectedBrush}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -154,7 +121,8 @@
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="Padding" Value="10,7" />
             <Setter Property="BorderThickness" Value="0,0,0,1" />
-            <Setter Property="BorderBrush" Value="{StaticResource BorderBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="ListBoxItem">
@@ -168,10 +136,10 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource SurfaceHoverBrush}" />
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
                             </Trigger>
                             <Trigger Property="IsSelected" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource SurfaceSelectedBrush}" />
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SurfaceSelectedBrush}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -181,9 +149,9 @@
 
         <!-- 次按钮样式 -->
         <Style x:Key="SecondaryButtonStyle" TargetType="Button">
-            <Setter Property="Background" Value="#FFFFFF" />
-            <Setter Property="Foreground" Value="#1F2329" />
-            <Setter Property="BorderBrush" Value="#D9DDE3" />
+            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource ButtonBorderBrush}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Padding" Value="16,0" />
             <Setter Property="Cursor" Value="Hand" />
@@ -201,15 +169,15 @@
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="#F0F2F5" />
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
                             </Trigger>
                             <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="#E5E6EB" />
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource ButtonPressedBrush}" />
                             </Trigger>
                             <Trigger Property="IsEnabled" Value="False">
-                                <Setter TargetName="Bd" Property="Background" Value="#F7F8FA" />
-                                <Setter TargetName="Bd" Property="BorderBrush" Value="#E5E6EB" />
-                                <Setter Property="Foreground" Value="#86909C" />
+                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SurfaceBrush}" />
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource ButtonBorderBrush}" />
+                                <Setter Property="Foreground" Value="{DynamicResource ButtonDisabledForegroundBrush}" />
                             </Trigger>
                         </ControlTemplate.Triggers>
                     </ControlTemplate>
@@ -231,8 +199,8 @@
 
         <!-- ═══ 自定义标题栏 ═══ -->
         <Border Grid.Row="0"
-                Background="{StaticResource SurfaceBrush}"
-                BorderBrush="{StaticResource BorderBrush}"
+                Background="{DynamicResource SurfaceBrush}"
+                BorderBrush="{DynamicResource BorderBrush}"
                 BorderThickness="0,0,0,1"
                 x:Name="TitleBar"
                 MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
@@ -240,6 +208,7 @@
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="46" />
                     <ColumnDefinition Width="46" />
                     <ColumnDefinition Width="46" />
                     <ColumnDefinition Width="46" />
@@ -256,15 +225,15 @@
                            Margin="0,0,8,0" />
                     <TextBlock Text="BiliHelper"
                                FontSize="13" FontWeight="SemiBold"
-                               Foreground="{StaticResource PrimaryBrush}"
+                               Foreground="{DynamicResource PrimaryBrush}"
                                VerticalAlignment="Center" />
                     <Ellipse Width="4" Height="4"
-                             Fill="{StaticResource TextMutedBrush}"
+                             Fill="{DynamicResource TextMutedBrush}"
                              VerticalAlignment="Center"
                              Margin="8,0" />
                     <TextBlock Text="B 站字幕查看器"
                                FontSize="12"
-                               Foreground="{StaticResource TextSecondaryBrush}"
+                               Foreground="{DynamicResource TextSecondaryBrush}"
                                VerticalAlignment="Center" />
                 </StackPanel>
 
@@ -272,9 +241,21 @@
                 <Rectangle Grid.Column="1" Fill="Transparent"
                            shell:WindowChrome.IsHitTestVisibleInChrome="False" />
 
-                <!-- 最小化 -->
+                <!-- 主题切换 -->
                 <Button Grid.Column="2"
                         Style="{StaticResource TitleBarButtonStyle}"
+                        x:Name="ThemeToggleButton"
+                        Click="ThemeToggleButton_Click"
+                        shell:WindowChrome.IsHitTestVisibleInChrome="True"
+                        ToolTip="切换主题"
+                        FontSize="14">
+                    <TextBlock x:Name="ThemeToggleIcon" Text="☀️"
+                               HorizontalAlignment="Center" VerticalAlignment="Center" />
+                </Button>
+
+                <!-- 最小化 -->
+                <Button Grid.Column="3"
+                        Style="{DynamicResource TitleBarButtonStyle}"
                         x:Name="MinimizeButton"
                         Click="MinimizeButton_Click"
                         shell:WindowChrome.IsHitTestVisibleInChrome="True">
@@ -286,8 +267,8 @@
                 </Button>
 
                 <!-- 最大化/还原 -->
-                <Button Grid.Column="3"
-                        Style="{StaticResource TitleBarButtonStyle}"
+                <Button Grid.Column="4"
+                        Style="{DynamicResource TitleBarButtonStyle}"
                         x:Name="MaximizeButton"
                         Click="MaximizeButton_Click"
                         shell:WindowChrome.IsHitTestVisibleInChrome="True">
@@ -301,14 +282,14 @@
                               Data="M2,2 L10,2 L10,10 L2,10 Z M0,0 L8,0 L8,8 L0,8 Z"
                               Stroke="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
                               StrokeThickness="1.2"
-                              Fill="{StaticResource SurfaceBrush}"
+                              Fill="{DynamicResource SurfaceBrush}"
                               Visibility="Collapsed" />
                     </Grid>
                 </Button>
 
                 <!-- 关闭 -->
-                <Button Grid.Column="4"
-                        Style="{StaticResource CloseButtonStyle}"
+                <Button Grid.Column="5"
+                        Style="{DynamicResource CloseButtonStyle}"
                         x:Name="CloseButton"
                         Click="CloseButton_Click"
                         shell:WindowChrome.IsHitTestVisibleInChrome="True">
@@ -322,8 +303,8 @@
         </Border>
 
         <!-- ═══ URL 输入行 ═══ -->
-        <Border Grid.Row="1" Background="{StaticResource SurfaceBrush}" Padding="16,12"
-                BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1">
+        <Border Grid.Row="1" Background="{DynamicResource SurfaceBrush}" Padding="16,12"
+                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1">
             <StackPanel>
                 <Grid>
                     <Grid.ColumnDefinitions>
@@ -334,44 +315,28 @@
                     </Grid.ColumnDefinitions>
 
                     <Border Grid.Column="0"
-                            Background="{StaticResource InputBgBrush}"
-                            BorderBrush="{StaticResource BorderBrush}"
+                            Background="{DynamicResource InputBgBrush}"
+                            BorderBrush="{DynamicResource BorderBrush}"
                             BorderThickness="1" CornerRadius="6">
                         <TextBox Text="{Binding Url, UpdateSourceTrigger=PropertyChanged}"
                                  FontSize="14" Padding="12,8" BorderThickness="0"
-                                 Background="Transparent" Foreground="{StaticResource TextPrimaryBrush}"
-                                 CaretBrush="{StaticResource PrimaryBrush}"
+                                 Background="Transparent" Foreground="{DynamicResource TextPrimaryBrush}"
+                                 CaretBrush="{DynamicResource PrimaryBrush}"
                                  VerticalContentAlignment="Center" />
                     </Border>
 
                     <Button Grid.Column="1"
-                            Content="📥 拉取字幕"
+                            Content="拉取字幕"
                             Command="{Binding FetchCommand}"
+                            Style="{DynamicResource SecondaryButtonStyle}"
                             Height="38" Margin="8,0,0,0"
-                            Padding="20,0" FontSize="14" FontWeight="SemiBold"
-                            Cursor="Hand" BorderThickness="0">
-                        <Button.Style>
-                            <Style TargetType="Button">
-                                <Setter Property="Background" Value="{StaticResource PrimaryBrush}" />
-                                <Setter Property="Foreground" Value="White" />
-                                <Style.Triggers>
-                                    <Trigger Property="IsEnabled" Value="False">
-                                        <Setter Property="Background" Value="#E5E6EB" />
-                                        <Setter Property="Foreground" Value="#86909C" />
-                                    </Trigger>
-                                    <Trigger Property="IsMouseOver" Value="True">
-                                        <Setter Property="Background" Value="{StaticResource PrimaryHoverBrush}" />
-                                    </Trigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Button.Style>
-                    </Button>
+                            Padding="20,0" FontSize="13" />
 
                     <!-- 历史记录按钮 -->
                     <Button Grid.Column="2"
                             Content="📋 历史"
                             Command="{Binding ToggleHistoryCommand}"
-                            Style="{StaticResource SecondaryButtonStyle}"
+                            Style="{DynamicResource SecondaryButtonStyle}"
                             Height="38" Margin="8,0,0,0"
                             Padding="14,0"
                             FontSize="13" />
@@ -379,14 +344,14 @@
                                ToolTip="已配置 cookies (www.bilibili.com_cookies.txt)" />
                 </Grid>
                 <TextBlock Text="💡 支持 BV 号 / 完整 URL / 多P合集 / 自动识别字幕语言"
-                           FontSize="11" Foreground="{StaticResource TextMutedBrush}" Margin="0,4,0,0" />
+                           FontSize="11" Foreground="{DynamicResource TextMutedBrush}" Margin="0,4,0,0" />
             </StackPanel>
         </Border>
 
         <!-- ═══ 进度条行 ═══ -->
-        <Border Grid.Row="2" Background="{StaticResource SurfaceBrush}"
+        <Border Grid.Row="2" Background="{DynamicResource SurfaceBrush}"
                 Padding="16,12"
-                BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1"
+                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1"
                 Visibility="{Binding HasProgress, Converter={StaticResource BoolToVis}}">
             <Grid>
                 <Grid.RowDefinitions>
@@ -398,8 +363,8 @@
                              Value="{Binding ProgressPercent}"
                              Minimum="0" Maximum="100"
                              Height="6"
-                             Foreground="{StaticResource PrimaryBrush}"
-                             Background="{StaticResource BorderBrush}"
+                             Foreground="{DynamicResource PrimaryBrush}"
+                             Background="{DynamicResource BorderBrush}"
                              BorderThickness="0" />
 
                 <Grid Grid.Row="1" Margin="0,4,0,0">
@@ -408,26 +373,26 @@
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <TextBlock Grid.Column="0" Text="{Binding ProgressText}"
-                               FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"
+                               FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"
                                TextTrimming="CharacterEllipsis" />
                     <TextBlock Grid.Column="1" Text="{Binding ProgressPercent, StringFormat={}{0:F0}%}"
-                               FontSize="11" Foreground="{StaticResource TextSecondaryBrush}" />
+                               FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" />
                 </Grid>
             </Grid>
         </Border>
 
         <!-- ═══ 错误行 ═══ -->
-        <Border Grid.Row="3" Background="{StaticResource SurfaceBrush}" Padding="16,8"
-                BorderBrush="{StaticResource ErrorBrush}" BorderThickness="0,0,0,1"
+        <Border Grid.Row="3" Background="{DynamicResource SurfaceBrush}" Padding="16,8"
+                BorderBrush="{DynamicResource ErrorBrush}" BorderThickness="0,0,0,1"
                 Visibility="{Binding HasError, Converter={StaticResource BoolToVis}}">
             <TextBlock Text="{Binding ErrorMessage}"
-                       Foreground="{StaticResource ErrorBrush}"
+                       Foreground="{DynamicResource ErrorBrush}"
                        FontSize="13" TextWrapping="Wrap" />
         </Border>
 
         <!-- ═══ 视频元信息 ═══ -->
-        <Border Grid.Row="4" Background="{StaticResource SurfaceBrush}" Padding="16,12"
-                BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1"
+        <Border Grid.Row="4" Background="{DynamicResource SurfaceBrush}" Padding="16,12"
+                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1"
                 Visibility="{Binding HasVideoInfo, Converter={StaticResource BoolToVis}}">
             <Grid>
                 <Grid.ColumnDefinitions>
@@ -445,18 +410,18 @@
                                FontSize="16" FontWeight="Bold"
                                TextTrimming="CharacterEllipsis" MaxWidth="500" />
                     <TextBlock Text="{Binding VideoInfo.BvId, StringFormat='  ·  {0}'}"
-                               FontSize="12" Foreground="{StaticResource TextSecondaryBrush}"
+                               FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"
                                VerticalAlignment="Center" />
                     <TextBlock Text="{Binding VideoInfo.StatusDisplay, StringFormat='  ·  {0}'}"
-                               FontSize="12" Foreground="{StaticResource TextSecondaryBrush}"
+                               FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"
                                VerticalAlignment="Center" Margin="0,0,10,0" />
                     <TextBlock Text="{Binding VideoInfo.TotalSubtitleCount, StringFormat='共 {0} 条字幕'}"
-                               FontSize="12" Foreground="{StaticResource TextSecondaryBrush}"
+                               FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"
                                VerticalAlignment="Center" />
                 </StackPanel>
 
                 <TextBlock Grid.Column="2" Text="{Binding VideoInfo.TotalParts, StringFormat='共 {0}P'}"
-                           Foreground="{StaticResource TextSecondaryBrush}"
+                           Foreground="{DynamicResource TextSecondaryBrush}"
                            FontSize="12"
                            VerticalAlignment="Center" />
             </Grid>
@@ -473,26 +438,27 @@
                 </Grid.ColumnDefinitions>
 
                 <!-- 左侧：分P列表 -->
-                <Border Grid.Column="0" Background="{StaticResource SurfaceBrush}"
-                        BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,1,0">
+                <Border Grid.Column="0" Background="{DynamicResource SurfaceBrush}"
+                        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,1,0">
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
 
-                        <Border Grid.Row="0" BorderBrush="{StaticResource BorderBrush}"
+                        <Border Grid.Row="0" BorderBrush="{DynamicResource BorderBrush}"
                                 BorderThickness="0,0,0,1" Padding="14,10">
                             <TextBlock Text="{Binding VideoInfo.TotalParts, StringFormat='📋 分P 列表 ({0})'}"
                                        FontSize="13" FontWeight="SemiBold"
-                                       Foreground="{StaticResource TextSecondaryBrush}" />
+                                       Foreground="{DynamicResource TextSecondaryBrush}" />
                         </Border>
 
                         <ListBox Grid.Row="1"
                                  ItemsSource="{Binding VideoInfo.Parts}"
                                  SelectedItem="{Binding SelectedPart}"
-                                 ItemContainerStyle="{StaticResource PartItemStyle}"
+                                 ItemContainerStyle="{DynamicResource PartItemStyle}"
                                  Background="Transparent" BorderThickness="0"
+                                 Foreground="{DynamicResource TextPrimaryBrush}"
                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
@@ -507,10 +473,10 @@
                                                  VerticalAlignment="Center" Margin="0,0,8,0">
                                             <Ellipse.Style>
                                                 <Style TargetType="Ellipse">
-                                                    <Setter Property="Fill" Value="{StaticResource SuccessBrush}" />
+                                                    <Setter Property="Fill" Value="{DynamicResource SuccessBrush}" />
                                                     <Style.Triggers>
                                                         <DataTrigger Binding="{Binding HasSubtitles}" Value="False">
-                                                            <Setter Property="Fill" Value="{StaticResource TextMutedBrush}" />
+                                                            <Setter Property="Fill" Value="{DynamicResource TextMutedBrush}" />
                                                         </DataTrigger>
                                                     </Style.Triggers>
                                                 </Style>
@@ -521,7 +487,7 @@
                                                    FontSize="13" TextTrimming="CharacterEllipsis"
                                                    VerticalAlignment="Center" />
                                         <TextBlock Grid.Column="2" Text="{Binding DurationFormatted}"
-                                                   FontSize="11" Foreground="{StaticResource TextMutedBrush}"
+                                                   FontSize="11" Foreground="{DynamicResource TextMutedBrush}"
                                                    VerticalAlignment="Center" />
                                     </Grid>
                                 </DataTemplate>
@@ -536,7 +502,7 @@
                               ResizeDirection="Columns" />
 
                 <!-- 右侧：字幕区域 -->
-                <Border Grid.Column="2" Background="{StaticResource BackgroundBrush}">
+                <Border Grid.Column="2" Background="{DynamicResource BackgroundBrush}">
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
@@ -544,8 +510,8 @@
                         </Grid.RowDefinitions>
 
                         <!-- ═══ TAB 栏 ═══ -->
-                        <Border Grid.Row="0" Background="{StaticResource SurfaceBrush}"
-                                BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1">
+                        <Border Grid.Row="0" Background="{DynamicResource SurfaceBrush}"
+                                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1">
                             <Grid>
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto" />
@@ -557,7 +523,7 @@
                                 <Border Grid.Column="0"
                                         x:Name="TabOriginal"
                                         PreviewMouseDown="SubtitleTab_PreviewMouseDown"
-                                        Background="{StaticResource SurfaceBrush}"
+                                        Background="{DynamicResource SurfaceBrush}"
                                         Padding="16,8,16,8"
                                         Cursor="Hand">
                                     <Border.Style>
@@ -566,10 +532,10 @@
                                             <Setter Property="BorderThickness" Value="0,0,0,2" />
                                             <Style.Triggers>
                                                 <DataTrigger Binding="{Binding SelectedSubtitleTab}" Value="0">
-                                                    <Setter Property="BorderBrush" Value="{StaticResource PrimaryBrush}" />
+                                                    <Setter Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
                                                 </DataTrigger>
                                                 <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter Property="Background" Value="{StaticResource SurfaceHoverBrush}" />
+                                                    <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
                                                 </Trigger>
                                             </Style.Triggers>
                                         </Style>
@@ -578,10 +544,10 @@
                                                FontSize="13" FontWeight="SemiBold">
                                         <TextBlock.Style>
                                             <Style TargetType="TextBlock">
-                                                <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
+                                                <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
                                                 <Style.Triggers>
                                                     <DataTrigger Binding="{Binding SelectedSubtitleTab}" Value="0">
-                                                        <Setter Property="Foreground" Value="{StaticResource PrimaryBrush}" />
+                                                        <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
                                                     </DataTrigger>
                                                 </Style.Triggers>
                                             </Style>
@@ -601,10 +567,10 @@
                                             <Setter Property="BorderThickness" Value="0,0,0,2" />
                                             <Style.Triggers>
                                                 <DataTrigger Binding="{Binding SelectedSubtitleTab}" Value="1">
-                                                    <Setter Property="BorderBrush" Value="{StaticResource PrimaryBrush}" />
+                                                    <Setter Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
                                                 </DataTrigger>
                                                 <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter Property="Background" Value="{StaticResource SurfaceHoverBrush}" />
+                                                    <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
                                                 </Trigger>
                                             </Style.Triggers>
                                         </Style>
@@ -614,11 +580,11 @@
                                         <TextBlock.Style>
                                             <Style TargetType="TextBlock">
                                                 <Setter Property="FontWeight" Value="Normal" />
-                                                <Setter Property="Foreground" Value="{StaticResource TextMutedBrush}" />
+                                                <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
                                                 <Style.Triggers>
                                                     <DataTrigger Binding="{Binding SelectedSubtitleTab}" Value="1">
                                                         <Setter Property="FontWeight" Value="SemiBold" />
-                                                        <Setter Property="Foreground" Value="{StaticResource PrimaryBrush}" />
+                                                        <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
                                                     </DataTrigger>
                                                 </Style.Triggers>
                                             </Style>
@@ -638,8 +604,8 @@
                             </Grid.RowDefinitions>
 
                             <!-- 搜索栏 -->
-                            <Border Grid.Row="0" Background="{StaticResource SurfaceBrush}"
-                                    BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,0,0,1"
+                            <Border Grid.Row="0" Background="{DynamicResource SurfaceBrush}"
+                                    BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1"
                                     Padding="12,8">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
@@ -648,18 +614,18 @@
                                     </Grid.ColumnDefinitions>
 
                                     <Border Grid.Column="0"
-                                            Background="{StaticResource InputBgBrush}"
-                                            BorderBrush="{StaticResource BorderBrush}"
+                                            Background="{DynamicResource InputBgBrush}"
+                                            BorderBrush="{DynamicResource BorderBrush}"
                                             BorderThickness="1" CornerRadius="4" Height="32">
                                         <TextBox Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
                                                  FontSize="13" Padding="8,0" BorderThickness="0"
-                                                 Background="Transparent" Foreground="{StaticResource TextPrimaryBrush}"
-                                                 CaretBrush="{StaticResource PrimaryBrush}"
+                                                 Background="Transparent" Foreground="{DynamicResource TextPrimaryBrush}"
+                                                 CaretBrush="{DynamicResource PrimaryBrush}"
                                                  VerticalContentAlignment="Center" />
                                     </Border>
 
                                     <TextBlock Grid.Column="1" Text="{Binding FilteredCount}"
-                                               FontSize="11" Foreground="{StaticResource TextSecondaryBrush}"
+                                               FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"
                                                VerticalAlignment="Center" Margin="12,0,0,0" />
                                 </Grid>
                             </Border>
@@ -667,7 +633,7 @@
                             <!-- 无选中分P时的占位 -->
                             <TextBlock Grid.Row="1"
                                        Text="← 从左侧选择一个分P"
-                                       FontSize="14" Foreground="{StaticResource TextMutedBrush}"
+                                       FontSize="14" Foreground="{DynamicResource TextMutedBrush}"
                                        HorizontalAlignment="Center" VerticalAlignment="Center"
                                        Visibility="{Binding SelectedPart, Converter={StaticResource NullToVis}, ConverterParameter=Invert}" />
 
@@ -675,8 +641,9 @@
                             <Grid Grid.Row="2">
                                 <ListBox x:Name="SubtitleListBox"
                                          ItemsSource="{Binding FilteredEntries}"
-                                         ItemContainerStyle="{StaticResource SubItemStyle}"
-                                         Background="Transparent" BorderThickness="0">
+                                         ItemContainerStyle="{DynamicResource SubItemStyle}"
+                                         Background="Transparent" BorderThickness="0"
+                                         Foreground="{DynamicResource TextPrimaryBrush}">
                                     <ListBox.ItemTemplate>
                                         <DataTemplate>
                                             <Grid>
@@ -689,27 +656,28 @@
                                                 </Grid.RowDefinitions>
 
                                                 <Border Grid.Row="0" Grid.Column="0"
-                                                        Background="{StaticResource SurfaceBrush}"
-                                                        BorderBrush="{StaticResource BorderBrush}"
+                                                        Background="{DynamicResource SurfaceBrush}"
+                                                        BorderBrush="{DynamicResource BorderBrush}"
                                                         BorderThickness="1" CornerRadius="4"
                                                         Padding="8,4" VerticalAlignment="Top"
                                                         Margin="0,0,10,0" MinWidth="80">
                                                     <StackPanel>
                                                         <TextBlock Text="{Binding StartTimeFormatted}"
                                                                    FontSize="12" FontFamily="pack://application:,,,/BiliHelperWpf;component/Assets/#Lilex Duo"
-                                                                   Foreground="{StaticResource PrimaryBrush}"
+                                                                   Foreground="{DynamicResource PrimaryBrush}"
                                                                    HorizontalAlignment="Center" />
                                                         <TextBlock Text="{Binding EndTimeFormatted}"
                                                                    FontSize="10" FontFamily="pack://application:,,,/BiliHelperWpf;component/Assets/#Lilex Duo"
-                                                                   Foreground="{StaticResource TextMutedBrush}"
+                                                                   Foreground="{DynamicResource TextMutedBrush}"
                                                                    HorizontalAlignment="Center" />
                                                     </StackPanel>
                                                 </Border>
 
                                                 <TextBlock Grid.Row="0" Grid.Column="1"
-                                                           Text="{Binding Text}"
-                                                           FontSize="14" TextWrapping="Wrap"
-                                                           LineHeight="22" VerticalAlignment="Center" />
+                                                       Text="{Binding Text}"
+                                                       FontSize="14" TextWrapping="Wrap"
+                                                       LineHeight="22" VerticalAlignment="Center"
+                                                       Foreground="{DynamicResource TextPrimaryBrush}" />
                                             </Grid>
                                         </DataTemplate>
                                     </ListBox.ItemTemplate>
@@ -726,16 +694,16 @@
                             </Grid.RowDefinitions>
 
                             <!-- 错误提示 -->
-                            <Border Grid.Row="0" Background="#FFF1F0"
-                                    BorderBrush="{StaticResource ErrorBrush}" BorderThickness="0,0,0,1"
+                            <Border Grid.Row="0" Background="{DynamicResource ErrorBackgroundBrush}"
+                                    BorderBrush="{DynamicResource ErrorBrush}" BorderThickness="0,0,0,1"
                                     Padding="12,8"
                                     Visibility="{Binding AiReadError, Converter={StaticResource BoolToVis}}">
                                 <StackPanel>
                                     <TextBlock Text="AI 整理失败"
                                                FontSize="12" FontWeight="SemiBold"
-                                               Foreground="{StaticResource ErrorBrush}" />
+                                               Foreground="{DynamicResource ErrorBrush}" />
                                     <TextBlock Text="{Binding AiReadErrorMessage}"
-                                               FontSize="11" Foreground="{StaticResource ErrorBrush}"
+                                               FontSize="11" Foreground="{DynamicResource ErrorBrush}"
                                                TextWrapping="Wrap" Margin="0,2,0,0" />
                                 </StackPanel>
                             </Border>
@@ -743,14 +711,14 @@
                             <!-- 无选中分P时的占位 -->
                             <TextBlock Grid.Row="1"
                                        Text="← 从左侧选择一个分P"
-                                       FontSize="14" Foreground="{StaticResource TextMutedBrush}"
+                                       FontSize="14" Foreground="{DynamicResource TextMutedBrush}"
                                        HorizontalAlignment="Center" VerticalAlignment="Center"
                                        Visibility="{Binding SelectedPart, Converter={StaticResource NullToVis}, ConverterParameter=Invert}" />
 
                             <!-- 未整理时的占位（有选中分P，但还没有 AI 段落） -->
                             <Border Grid.Row="2"
-                                    Background="{StaticResource SurfaceBrush}"
-                                    BorderBrush="{StaticResource BorderBrush}"
+                                    Background="{DynamicResource SurfaceBrush}"
+                                    BorderBrush="{DynamicResource BorderBrush}"
                                     BorderThickness="1"
                                     CornerRadius="10"
                                     Padding="48,36"
@@ -764,12 +732,12 @@
                                                HorizontalAlignment="Center" />
                                     <TextBlock Text="该分P 尚未进行 AI 整理"
                                                FontSize="16" FontWeight="SemiBold"
-                                               Foreground="{StaticResource TextPrimaryBrush}"
+                                               Foreground="{DynamicResource TextPrimaryBrush}"
                                                HorizontalAlignment="Center"
                                                Margin="0,16,0,0" />
                                     <TextBlock Text="AI 将修正错别字、添加标点并分段，生成适合阅读的全文"
                                                FontSize="12"
-                                               Foreground="{StaticResource TextMutedBrush}"
+                                               Foreground="{DynamicResource TextMutedBrush}"
                                                TextWrapping="Wrap"
                                                TextAlignment="Center"
                                                HorizontalAlignment="Center"
@@ -777,35 +745,17 @@
                                     <!-- 整理中隐藏按钮，进度文本显示在按钮下方 -->
                                     <Button Content="✨ 立即整理当前分P"
                                             Command="{Binding AiReadCommand}"
+                                            Style="{DynamicResource SecondaryButtonStyle}"
                                             Height="36"
                                             Padding="20,0"
                                             Margin="0,20,0,0"
-                                            FontSize="13" FontWeight="SemiBold"
-                                            Cursor="Hand" BorderThickness="0"
+                                            FontSize="13"
                                             HorizontalAlignment="Center"
                                             Visibility="{Binding IsAiReadBusy, Converter={StaticResource InverseBoolToVis}}">
-                                        <Button.Style>
-                                            <Style TargetType="Button">
-                                                <Setter Property="Background" Value="{StaticResource PrimaryBrush}" />
-                                                <Setter Property="Foreground" Value="White" />
-                                                <Style.Triggers>
-                                                    <Trigger Property="IsEnabled" Value="False">
-                                                        <Setter Property="Background" Value="#E5E6EB" />
-                                                        <Setter Property="Foreground" Value="#86909C" />
-                                                    </Trigger>
-                                                    <Trigger Property="IsMouseOver" Value="True">
-                                                        <Setter Property="Background" Value="{StaticResource PrimaryHoverBrush}" />
-                                                    </Trigger>
-                                                    <Trigger Property="IsPressed" Value="True">
-                                                        <Setter Property="Background" Value="{StaticResource PrimaryPressedBrush}" />
-                                                    </Trigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </Button.Style>
                                     </Button>
                                     <TextBlock Text="{Binding AiReadStatus}"
                                                FontSize="12"
-                                               Foreground="{StaticResource TextSecondaryBrush}"
+                                               Foreground="{DynamicResource TextSecondaryBrush}"
                                                HorizontalAlignment="Center"
                                                Margin="0,14,0,0"
                                                TextWrapping="Wrap" />
@@ -825,9 +775,9 @@
                                             <StackPanel Margin="0,0,0,18">
                                                 <TextBlock Text="{Binding Text}"
                                                            FontSize="15" LineHeight="28" TextWrapping="Wrap"
-                                                           Foreground="{StaticResource TextPrimaryBrush}" />
+                                                           Foreground="{DynamicResource TextPrimaryBrush}" />
                                                 <TextBlock Text="{Binding SourceStartIndex, StringFormat='↳ 字幕 #{0}'}"
-                                                           FontSize="11" Foreground="{StaticResource TextMutedBrush}"
+                                                           FontSize="11" Foreground="{DynamicResource TextMutedBrush}"
                                                            Margin="0,4,0,0" />
                                             </StackPanel>
                                         </DataTemplate>
@@ -842,37 +792,37 @@
             </Grid>
 
             <!-- 空状态占位 -->
-            <Border Background="{StaticResource BackgroundBrush}"
+            <Border Background="{DynamicResource BackgroundBrush}"
                     Visibility="{Binding HasVideoInfo, Converter={StaticResource InverseBoolToVis}}">
                 <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                     <TextBlock Text="🎬" FontSize="64" HorizontalAlignment="Center" />
                     <TextBlock Text="输入视频 URL 并点击「拉取字幕」"
-                               FontSize="16" Foreground="{StaticResource TextSecondaryBrush}"
+                               FontSize="16" Foreground="{DynamicResource TextSecondaryBrush}"
                                HorizontalAlignment="Center" Margin="0,16,0,0" />
                     <TextBlock Text="支持 BV 号 · 完整链接 · 多P 视频 · AI 字幕 / CC 字幕"
-                               FontSize="12" Foreground="{StaticResource TextMutedBrush}"
+                               FontSize="12" Foreground="{DynamicResource TextMutedBrush}"
                                HorizontalAlignment="Center" Margin="0,8,0,0" />
                 </StackPanel>
             </Border>
         </Grid>
 
         <!-- ═══ 底栏 ═══ -->
-        <Border Grid.Row="6" Background="{StaticResource SurfaceBrush}" Padding="16,6"
-                BorderBrush="{StaticResource BorderBrush}" BorderThickness="0,1,0,0">
+        <Border Grid.Row="6" Background="{DynamicResource SurfaceBrush}" Padding="16,6"
+                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <TextBlock Grid.Column="0" Text="{Binding StatusMessage}"
-                           FontSize="11" Foreground="{StaticResource TextMutedBrush}"
+                           FontSize="11" Foreground="{DynamicResource TextMutedBrush}"
                            VerticalAlignment="Center" />
                 <!-- 右下角调整大小手柄 -->
                 <Border Grid.Column="1" Width="16" Height="14"
                         VerticalAlignment="Bottom" HorizontalAlignment="Right"
                         Opacity="0.4">
                     <Path Data="M0,14 L14,0"
-                          Stroke="{StaticResource TextMutedBrush}"
+                          Stroke="{DynamicResource TextMutedBrush}"
                           StrokeThickness="1.5"
                           VerticalAlignment="Bottom"
                           HorizontalAlignment="Right"
@@ -890,14 +840,14 @@
                 <ColumnDefinition Width="320" />
             </Grid.ColumnDefinitions>
             <!-- 半透明遮罩（只覆盖左侧，不挡抽屉） -->
-            <Rectangle Grid.Column="0" Fill="#000000" Opacity="0.3"
+            <Rectangle Grid.Column="0" Fill="{DynamicResource OverlayBrush}" Opacity="0.3"
                        Cursor="Hand"
                        PreviewMouseDown="HistoryOverlay_MouseDown" />
             <!-- 抽屉面板（右侧滑出） -->
             <Border x:Name="HistoryDrawer"
                     Grid.Column="1"
-                    Background="{StaticResource SurfaceBrush}"
-                    BorderBrush="{StaticResource BorderBrush}"
+                    Background="{DynamicResource SurfaceBrush}"
+                    BorderBrush="{DynamicResource BorderBrush}"
                     BorderThickness="1,0,0,0"
                     RenderTransformOrigin="1,0.5">
                 <Border.RenderTransform>
@@ -912,7 +862,7 @@
 
                     <!-- 抽屉标题 -->
                     <Border Grid.Row="0"
-                            BorderBrush="{StaticResource BorderBrush}"
+                            BorderBrush="{DynamicResource BorderBrush}"
                             BorderThickness="0,0,0,1"
                             Padding="16,12">
                         <Grid>
@@ -932,7 +882,7 @@
                                     Padding="0"
                                     ToolTip="关闭"
                                     Background="Transparent"
-                                    Foreground="{StaticResource TextSecondaryBrush}"
+                                    Foreground="{DynamicResource TextSecondaryBrush}"
                                     shell:WindowChrome.IsHitTestVisibleInChrome="True">
                                 <Button.Template>
                                     <ControlTemplate TargetType="Button">
@@ -949,11 +899,11 @@
                                         </Border>
                                         <ControlTemplate.Triggers>
                                             <Trigger Property="IsMouseOver" Value="True">
-                                                <Setter TargetName="Bd" Property="Background" Value="{StaticResource SurfaceHoverBrush}" />
-                                                <Setter Property="Foreground" Value="{StaticResource TextPrimaryBrush}" />
+                                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
+                                                <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
                                             </Trigger>
                                             <Trigger Property="IsPressed" Value="True">
-                                                <Setter TargetName="Bd" Property="Background" Value="#D9DDE3" />
+                                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource TitleBarPressedBrush}" />
                                             </Trigger>
                                         </ControlTemplate.Triggers>
                                     </ControlTemplate>
@@ -974,11 +924,11 @@
                                 <DataTemplate>
                                     <StackPanel>
                                         <!-- 日期分组标题 -->
-                                        <Border Background="{StaticResource BackgroundBrush}"
+                                        <Border Background="{DynamicResource BackgroundBrush}"
                                                 Padding="16,10,16,4">
                                             <TextBlock Text="{Binding GroupTitle}"
                                                        FontSize="12" FontWeight="SemiBold"
-                                                       Foreground="{StaticResource TextSecondaryBrush}" />
+                                                       Foreground="{DynamicResource TextSecondaryBrush}" />
                                         </Border>
 
                                         <!-- 该日期下的视频列表 -->
@@ -988,7 +938,7 @@
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate>
                                                     <Border Padding="16,10,16,10"
-                                                            BorderBrush="{StaticResource BorderBrush}"
+                                                            BorderBrush="{DynamicResource BorderBrush}"
                                                             BorderThickness="0,0,0,1"
                                                             Cursor="Hand">
                                                         <Border.Style>
@@ -996,7 +946,7 @@
                                                                 <Setter Property="Background" Value="Transparent" />
                                                                 <Style.Triggers>
                                                                     <Trigger Property="IsMouseOver" Value="True">
-                                                                        <Setter Property="Background" Value="{StaticResource SurfaceSelectedBrush}" />
+                                                                        <Setter Property="Background" Value="{DynamicResource SurfaceSelectedBrush}" />
                                                                     </Trigger>
                                                                 </Style.Triggers>
                                                             </Style>
@@ -1024,14 +974,14 @@
                                                             <TextBlock Grid.Row="0" Grid.Column="1"
                                                                        Text="{Binding TimeStr}"
                                                                        FontSize="11"
-                                                                       Foreground="{StaticResource TextMutedBrush}"
+                                                                       Foreground="{DynamicResource TextMutedBrush}"
                                                                        VerticalAlignment="Center"
                                                                        Margin="10,0,0,0" />
 
                                                             <TextBlock Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
                                                                        Text="{Binding Summary}"
                                                                        FontSize="11"
-                                                                       Foreground="{StaticResource TextSecondaryBrush}"
+                                                                       Foreground="{DynamicResource TextSecondaryBrush}"
                                                                        Margin="0,2,0,0" />
                                                         </Grid>
                                                     </Border>
@@ -1048,7 +998,7 @@
                     <TextBlock Grid.Row="2"
                                Text="单击条目加载历史"
                                FontSize="11"
-                               Foreground="{StaticResource TextMutedBrush}"
+                               Foreground="{DynamicResource TextMutedBrush}"
                                Padding="16,8" />
                 </Grid>
             </Border>

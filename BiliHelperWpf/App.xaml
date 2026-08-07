@@ -4,6 +4,11 @@
              xmlns:local="clr-namespace:BiliHelperWpf"
              StartupUri="MainWindow.xaml">
     <Application.Resources>
-         
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="Themes/ScrollBar.xaml" />
+                <ResourceDictionary x:Name="ThemeDictionary" Source="Themes/Light.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
     </Application.Resources>
 </Application>

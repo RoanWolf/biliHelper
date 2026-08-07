@@ -44,8 +44,13 @@ biliHelper/
 │   │   ├── BoolToVisibilityConverter.cs
 │   │   ├── NullToVisibilityConverter.cs
 │   │   └── StatusToColorConverter.cs
-│   ├── MainWindow.xaml            主界面
-│   ├── MainWindow.xaml.cs         代码隐藏（含 DWM 圆角）
+│   ├── Themes/                    多主题（浅 / 深色）
+│   │   ├── Light.xaml             浅色主题（34 个画刷，运行时可切换）
+│   │   ├── Dark.xaml              深色主题（与 Light 同 key）
+│   │   └── ScrollBar.xaml         通用细滚动条（颜色随主题）
+│   ├── ThemeManager.cs            主题切换 / 持久化（%LocalAppData%\BiliHelper\theme.txt）
+│   ├── MainWindow.xaml            主界面（颜色全部走 DynamicResource）
+│   ├── MainWindow.xaml.cs         代码隐藏（含 DWM 圆角、主题切换按钮）
 │   ├── WpfHelper.cs               可视化树工具方法
 │   └── history/                   本地历史记录（用户数据，gitignore）
 │
@@ -102,7 +107,7 @@ BiliService.FetchStreamAsync(url, onMeta, onPart, onComplete, ...)
 ### 调用链路（AI 润色）
 
 ```
-用户选中分P → 点击「✨ 立即整理当前分P」（AI润色 TAB）
+用户选中分P → 点击「整理当前分P」（AI润色 TAB）
     │
     ▼
 MainViewModel.GenerateReadAsync()
@@ -191,9 +196,24 @@ DEEPSEEK_MODEL=deepseek-v4-flash
 
 ---
 
-## 日志
+## 多主题（浅 / 深色）
 
-- 路径：`_log/BiliHelperWpf_Log.txt`
+WPF 端支持浅色 / 深色两种主题，运行时可切换（标题栏 ☀️/🌙 按钮），选择持久化到 `%LocalAppData%\BiliHelper\theme.txt`，下次启动自动恢复。
+
+### 结构
+
+- `Themes/Light.xaml`、`Themes/Dark.xaml`：两套**相同 key** 的 `SolidColorBrush`（各 34 个）。key 保持一致是主题切换的前提——替换字典后所有 `DynamicResource` 同时刷新。
+- `Themes/ScrollBar.xaml`：自定义细滚动条（8px、圆角 thumb），颜色通过 `DynamicResource` 随主题切换，与浅/深共用。
+- `ThemeManager.cs`：切换时用正则 `Light\.xaml$|Dark\.xaml$` 定位**主题字典**并替换其 `Source`（不会误改共享的 ScrollBar 字典），从而触发全部 `DynamicResource` 刷新。
+
+### 关键约定（勿破坏）
+
+- **主界面颜色一律用 `DynamicResource`**（主题切换时即时刷新）。
+- `Binding.Converter` 属性不是依赖属性，**不能**用 `DynamicResource`，因此 `BoolToVis` / `InverseBoolToVis` / `NullToVis` / `StatusToColor` 这类 converter 引用必须用 `StaticResource`（定义在 `Window.Resources` 内）。
+- 事件色转换器（`StatusToColorConverter`）通过 `Application.Current.TryFindResource` 运行时取色，因此能随主题变化。
+- `ScrollBar.xaml` 中被引用的 `x:Key` 样式必须声明在隐式样式**之前**（`StaticResource` 只能向前解析）。
+
+---
 - 每次启动覆盖，记录完整数据流：
   - 字幕抓取：启动、meta、每分P、完成
   - AI 润色：开始、子进程启动、stdout/stderr、完成回调、read.json 保存、取消/异常

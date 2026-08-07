@@ -1,5 +1,6 @@
 using System;
 using System.Globalization;
+using System.Windows;
 using System.Windows.Data;
 using System.Windows.Media;
 
@@ -7,32 +8,39 @@ namespace BiliHelperWpf.Converters;
 
 /// <summary>
 /// 将 status 字符串 ("ok", "partial", "empty") 映射为颜色画刷。
-/// ok → 成功 #00B42A, partial → 运行 #165DFF, empty → 等待 #86909C
+/// 从当前主题资源字典查找画刷，随主题（浅/深）切换而变化。
+/// ok → SuccessBrush, partial → RunningBrush, empty → WaitingBrush。
 /// </summary>
 public class StatusToColorConverter : IValueConverter
 {
-    private static readonly SolidColorBrush OkBrush = new(Color.FromRgb(0x00, 0xB4, 0x2A));
-    private static readonly SolidColorBrush PartialBrush = new(Color.FromRgb(0x16, 0x5D, 0xFF));
-    private static readonly SolidColorBrush EmptyBrush = new(Color.FromRgb(0x86, 0x90, 0x9C));
-    private static readonly SolidColorBrush DefaultBrush = new(Color.FromRgb(0x86, 0x90, 0x9C));
+    private static readonly SolidColorBrush DefaultBrush =
+        CreateBrush(Color.FromRgb(0x86, 0x90, 0x9C));
 
     public object Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
-        if (value is string status)
+        var key = value switch
         {
-            return status.ToLowerInvariant() switch
-            {
-                "ok" => OkBrush,
-                "partial" => PartialBrush,
-                "empty" => EmptyBrush,
-                _ => DefaultBrush
-            };
-        }
+            string s when s.Equals("ok", StringComparison.OrdinalIgnoreCase) => "SuccessBrush",
+            string s when s.Equals("partial", StringComparison.OrdinalIgnoreCase) => "RunningBrush",
+            string s when s.Equals("empty", StringComparison.OrdinalIgnoreCase) => "WaitingBrush",
+            _ => null,
+        };
+
+        if (key != null && Application.Current?.TryFindResource(key) is Brush brush)
+            return brush;
+
         return DefaultBrush;
     }
 
     public object ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
         throw new NotSupportedException();
+    }
+
+    private static SolidColorBrush CreateBrush(Color color)
+    {
+        var b = new SolidColorBrush(color);
+        b.Freeze();
+        return b;
     }
 }

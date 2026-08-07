@@ -1,0 +1,58 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- ═══ 表面 / 背景 ═══ -->
+    <SolidColorBrush x:Key="BackgroundBrush"      Color="#17181C" />
+    <SolidColorBrush x:Key="SurfaceBrush"              Color="#1F2127" />
+    <SolidColorBrush x:Key="SurfaceHoverBrush"         Color="#2A2D34" />
+    <SolidColorBrush x:Key="SurfaceSelectedBrush"      Color="#2E3A4A" />
+    <SolidColorBrush x:Key="InputBgBrush"              Color="#26282E" />
+
+    <!-- ═══ 品牌 / 主色 ═══ -->
+    <SolidColorBrush x:Key="PrimaryBrush"              Color="#E75E86" />
+    <SolidColorBrush x:Key="PrimaryHoverBrush"         Color="#F07098" />
+    <SolidColorBrush x:Key="PrimaryPressedBrush"       Color="#D24E78" />
+    <SolidColorBrush x:Key="PrimaryDisabledBrush"      Color="#3A3D44" />
+    <SolidColorBrush x:Key="PrimaryDisabledForegroundBrush" Color="#6C7078" />
+
+    <!-- 主按钮前景：两主题统一白字，保持品牌一致 -->
+    <SolidColorBrush x:Key="PrimaryForegroundBrush"     Color="#FFFFFF" />
+
+    <!-- ═══ 文字 ═══ -->
+    <SolidColorBrush x:Key="TextPrimaryBrush"          Color="#E8EAED" />
+    <SolidColorBrush x:Key="TextSecondaryBrush"        Color="#B3B8C0" />
+    <SolidColorBrush x:Key="TextMutedBrush"            Color="#7C828C" />
+
+    <!-- ═══ 边框 ═══ -->
+    <SolidColorBrush x:Key="BorderBrush"               Color="#36393F" />
+
+    <!-- ═══ 状态色 ═══ -->
+    <SolidColorBrush x:Key="SuccessBrush"              Color="#3FBF63" />
+    <SolidColorBrush x:Key="RunningBrush"              Color="#4C8DF5" />
+    <SolidColorBrush x:Key="WaitingBrush"              Color="#7C828C" />
+    <SolidColorBrush x:Key="ErrorBrush"                Color="#F06A6A" />
+    <SolidColorBrush x:Key="ErrorBackgroundBrush"      Color="#3A2626" />
+
+    <!-- ═══ 次按钮 ═══ -->
+    <SolidColorBrush x:Key="ButtonBorderBrush"         Color="#3E4148" />
+    <SolidColorBrush x:Key="ButtonPressedBrush"        Color="#2A2D34" />
+    <SolidColorBrush x:Key="ButtonDisabledBackgroundBrush" Color="#202227" />
+    <SolidColorBrush x:Key="ButtonDisabledForegroundBrush" Color="#5A5E66" />
+
+    <!-- ═══ 标题栏 / 关闭按钮 ═══ -->
+    <SolidColorBrush x:Key="TitleBarPressedBrush"      Color="#2A2D34" />
+    <SolidColorBrush x:Key="CloseButtonHoverBrush"     Color="#E0434F" />
+    <SolidColorBrush x:Key="CloseButtonPressedBrush"   Color="#B93540" />
+
+    <!-- ═══ 遮罩 ═══ -->
+    <SolidColorBrush x:Key="OverlayBrush"              Color="#000000" />
+
+    <!-- ═══ 滚动条 ═══ -->
+    <SolidColorBrush x:Key="ScrollBarTrackBrush"       Color="#00000000" />
+    <SolidColorBrush x:Key="ScrollBarThumbBrush"       Color="#338A8F98" />
+    <SolidColorBrush x:Key="ScrollBarThumbHoverBrush"  Color="#4D8A8F98" />
+    <SolidColorBrush x:Key="ScrollBarThumbPressedBrush" Color="#668A8F98" />
+    <SolidColorBrush x:Key="ScrollBarButtonBrush"      Color="#407C828C" />
+    <SolidColorBrush x:Key="ScrollBarButtonHoverBrush" Color="#5A7C828C" />
+
+</ResourceDictionary>
