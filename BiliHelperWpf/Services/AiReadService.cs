@@ -47,6 +47,22 @@ public class AiReadService
         Path.Combine(CoreDir, ".venv", "Scripts", "python.exe");
 
     /// <summary>
+    /// 将模型设置注入子进程环境变量（优先使用传入的 settings，否则用已持久化的）。
+    /// 非空才注入：Python 端 AIClient.from_env 只读环境变量，缺失回退默认值；
+    /// 空字段不注入，避免空字符串覆盖默认值。
+    /// </summary>
+    private static void ApplySettings(ProcessStartInfo psi, BiliHelperWpf.Models.AiSettings? settings = null)
+    {
+        settings ??= AiSettingsStore.Load();
+        if (!string.IsNullOrWhiteSpace(settings.ApiKey))
+            psi.EnvironmentVariables["DEEPSEEK_API_KEY"] = settings.ApiKey.Trim();
+        if (!string.IsNullOrWhiteSpace(settings.BaseUrl))
+            psi.EnvironmentVariables["DEEPSEEK_BASE_URL"] = settings.BaseUrl.Trim();
+        if (!string.IsNullOrWhiteSpace(settings.Model))
+            psi.EnvironmentVariables["DEEPSEEK_MODEL"] = settings.Model.Trim();
+    }
+
+    /// <summary>
     /// 为指定 BV ID 的指定分P 生成 AI 阅读版。
     ///
     /// onMeta:    子进程启动后回调元信息（标题、条数等）。
@@ -90,6 +106,7 @@ public class AiReadService
             CreateNoWindow = true,
         };
         psi.EnvironmentVariables["PYTHONIOENCODING"] = "utf-8";
+        ApplySettings(psi);
 
         using var process = new Process { StartInfo = psi };
         process.Start();
@@ -166,6 +183,94 @@ public class AiReadService
         }
 
         App.Log($"AiReadService: 完成, bvId={bvId}, part={partNumber}, exit=0");
+    }
+
+    /// <summary>
+    /// 连通性测试：以当前保存的设置（或为空时回退 .env）启动
+    /// `ai_read.py --test`，返回是否连通及分类提示信息。
+    /// </summary>
+    public async Task<(bool ok, string message)> TestConnectivityAsync(
+        BiliHelperWpf.Models.AiSettings? settings = null,
+        CancellationToken ct = default)
+    {
+        var psi = new ProcessStartInfo
+        {
+            FileName = PythonExe,
+            Arguments = $"\"{PythonScript}\" --test",
+            WorkingDirectory = RepoRoot,
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            StandardOutputEncoding = Encoding.UTF8,
+            StandardErrorEncoding = Encoding.UTF8,
+            CreateNoWindow = true,
+        };
+        psi.EnvironmentVariables["PYTHONIOENCODING"] = "utf-8";
+        ApplySettings(psi, settings);
+
+        using var process = new Process { StartInfo = psi };
+        process.Start();
+        App.Log($"AiReadService: 连通性测试子进程已启动, PID={process.Id}");
+
+        var stderr = new List<string>();
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                while (true)
+                {
+                    string? line = await process.StandardError.ReadLineAsync(ct);
+                    if (line == null) break;
+                    if (!string.IsNullOrWhiteSpace(line))
+                        stderr.Add(line);
+                }
+            }
+            catch (OperationCanceledException) { }
+        }, ct);
+
+        string? lastLine = null;
+        try
+        {
+            while (true)
+            {
+                ct.ThrowIfCancellationRequested();
+                string? line = await process.StandardOutput.ReadLineAsync(ct);
+                if (line == null) break;
+                if (string.IsNullOrWhiteSpace(line)) continue;
+                lastLine = line;
+                App.Log($"AiReadService: test stdout {TrimProgressLine(line)}");
+            }
+            await process.WaitForExitAsync(ct).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            KillProcess(process);
+            throw;
+        }
+
+        // 无论退出码都先尝试解析 stdout 的 JSON：--test 失败时同样会输出
+        // {"ok":false,"message":"..."}（exit=1），解析它才能拿到分类错误信息。
+        if (lastLine != null)
+        {
+            try
+            {
+                using var doc = JsonDocument.Parse(lastLine);
+                var root = doc.RootElement;
+                if (root.TryGetProperty("ok", out var okElem))
+                {
+                    var message = root.TryGetProperty("message", out var msgElem)
+                        ? msgElem.GetString() ?? ""
+                        : "";
+                    return (ok: okElem.GetBoolean(), message: message);
+                }
+            }
+            catch (JsonException) { }
+        }
+
+        var fallback = ExtractError(stderr)
+            ?? (process.ExitCode == 0 ? null : $"连通性测试失败（退出码 {process.ExitCode}）")
+            ?? "连通性测试失败";
+        return (false, fallback);
     }
 
     // ── 解析 ─────────────────────────────────────────────────

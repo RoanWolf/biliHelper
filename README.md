@@ -18,13 +18,12 @@ biliHelper/
 │   │   └── ai_read.py             单分P AI 润色脚本（供 WPF 子进程调用）
 │   ├── pyproject.toml             uv 项目配置（依赖 openai + yt-dlp + requests + qrcode）
 │   ├── uv.lock                    依赖锁
-│   ├── .venv/                     虚拟环境
-│   ├── .env                       DeepSeek API key（已被 .gitignore 忽略）
-│   └── .env.example               .env 模板（可提交）
+│   └── .venv/                     虚拟环境
 │
 ├── BiliHelperWpf/                 ← WPF 桌面端（.NET 10）
 │   ├── Models/                    数据模型
 │   │   ├── AuthEvent.cs           登录事件 + CookieState 枚举
+│   │   ├── AiSettings.cs          AI 大模型连接设置（API key / base_url / model）
 │   │   ├── BiliVideoInfo.cs       顶层视频信息
 │   │   ├── PartInfo.cs            分P 信息
 │   │   ├── SubtitleEntry.cs       单条字幕
@@ -36,6 +35,7 @@ biliHelper/
 │   ├── Services/
 │   │   ├── BiliService.cs         字幕抓取子进程管理 + 管道读取
 │   │   ├── AiReadService.cs       AI 润色子进程管理 + 管道读取
+│   │   ├── AiSettingsStore.cs     AI 设置持久化（%LocalAppData%\BiliHelper\ai_settings.json）
 │   │   ├── AuthService.cs         B 站登录子进程管理（auth.py）+ 管道读取
 │   │   └── HistoryService.cs      本地 JSON 文件存储（raw/read）
 │   ├── ViewModels/
@@ -52,6 +52,7 @@ biliHelper/
 │   │   └── ScrollBar.xaml         通用细滚动条（颜色随主题）
 │   ├── ThemeManager.cs             主题切换 / 持久化（%LocalAppData%\BiliHelper\theme.txt）
 │   ├── LoginWindow.xaml(.cs)       独立的 B 站扫码登录窗
+│   ├── SettingsWindow.xaml(.cs)    独立设置窗（AI 大模型连接，标题栏 ⚙️）
 │   ├── MainWindow.xaml             主界面（含 🍪/⚠ cookie 按钮，颜色走 DynamicResource）
 │   ├── MainWindow.xaml.cs          窗口隐藏（含 DWM 圆角、主题切换、登录窗开关）
 │   ├── WpfHelper.cs                可视化树工具方法
@@ -119,6 +120,7 @@ MainViewModel.GenerateReadAsync()
 AiReadService.GenerateReadDataAsync(bvId, partNumber, ...)
     │
     ├── Process.Start(python.exe, ai_read.py, --raw, raw.json, --part, N)
+    │   │   启动前 ApplySettings()：把设置窗非空字段注入环境变量
     │   │
     │   │   ╔══════════════════════════════════════════════╗
     │   │   ║         子进程 (Python)                       ║
@@ -180,7 +182,8 @@ BiliHelperWpf/history/
 ├── cookies.json    权威存储 {cookies, refresh_token, ...}
 ├── cookies.txt     给 yt-dlp 用的 Netscape 格式（BiliService 读取）
 ├── qr_login.png    扫码登录窗显示的二维码
-└── theme.txt       主题偏好
+├── theme.txt       主题偏好
+└── ai_settings.json AI 大模型连接设置（API key / base_url / model）
 ```
 
 ### 调用链路（扫码登录）
@@ -220,19 +223,18 @@ AuthService.LoginAsync(onQr, onStatus, onError, ...)
 
 ---
 
-## AI 润色（DeepSeek）
+## AI 润色（OpenAI 兼容接口）
 
 ### 配置
 
-`.env` 文件（位于 `bilihelperCore/.env`，已被 `.gitignore` 忽略，真实 key 不提交）：
+唯一入口是 **WPF 设置窗**（标题栏 ⚙️，`SettingsWindow`）：填 API Key / Base URL / 模型，点「测试连通性」验证后保存。持久化到 `%LocalAppData%\BiliHelper\ai_settings.json`（明文，与 cookie 同一目录同一安全级别）。
 
-```
-DEEPSEEK_API_KEY=sk-...
-DEEPSEEK_BASE_URL=https://api.deepseek.com
-DEEPSEEK_MODEL=deepseek-v4-flash
-```
+**注入机制**：WPF 启动 Python 子进程时，把设置窗中**非空**的字段通过环境变量 `DEEPSEEK_API_KEY` / `DEEPSEEK_BASE_URL` / `DEEPSEEK_MODEL` 注入；空字段不注入，Python 端回退到默认值（BaseUrl 默认 `https://api.deepseek.com`，模型默认 `deepseek-v4-flash`）。API Key 为空则明确报错并引导去设置窗填写。
 
-模板见 `.env.example`。
+**注意事项**：
+- `Base URL` 填 SDK 的 base_url，**不要**以 `/chat/completions` 结尾（OpenAI SDK 会自动追加）；例如 OpenCode Zen 填 `https://opencode.ai/zen/go/v1`。
+- 模型名**不要**带 provider 前缀（如 `opencode-go/...`），填纯模型 ID 如 `deepseek-v4-flash`。
+- 「测试连通性」调用 `ai_read.py --test`，Python 端按认证失败 / 模型不存在 / 限流 / 网络不通分类报错。
 
 ### 核心逻辑
 
@@ -297,10 +299,9 @@ WPF 端支持浅色 / 深色两种主题，运行时可切换（标题栏 ☀️
 cd bilihelperCore
 uv sync
 
-# 复制 API key 模板并填写真实值
-copy .env.example .env
-
 # WPF 构建（项目根目录）
 cd BiliHelperWpf
 dotnet build
 ```
+
+首次使用：运行应用后在标题栏 ⚙️ 设置窗填写 AI API Key / Base URL / 模型，点「测试连通性」验证并保存。

@@ -190,16 +190,36 @@ def parse_and_validate(result: str, subtitle_count: int) -> list[dict]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="单分P AI 阅读版生成")
-    parser.add_argument("--raw", required=True, help="raw.json 路径")
-    parser.add_argument("--part", type=int, required=True, help="要处理的分P 号")
+    parser.add_argument("--raw", help="raw.json 路径")
+    parser.add_argument("--part", type=int, help="要处理的分P 号")
+    parser.add_argument(
+        "--test", action="store_true",
+        help="连通性测试模式：仅验证 API key/base_url/model，不处理字幕",
+    )
     args = parser.parse_args()
 
+    # ── 连通性测试 ────────────────────────────────────────
+    if args.test:
+        try:
+            client = AIClient.from_env()
+        except ValueError as e:
+            print(f"[ERROR] {e}", file=sys.stderr)
+            return 1
+        ok, message = client.test_connectivity()
+        emit({"type": "test", "ok": ok, "message": message})
+        return 0 if ok else 1
+
+    if not args.raw or args.part is None:
+        print(f"[ERROR] 缺少 --raw / --part 参数", file=sys.stderr)
+        return 1
+
     raw_path = Path(args.raw)
+
+    # ── 读取 raw.json ─────────────────────────────────────
     if not raw_path.is_file():
         print(f"[ERROR] 找不到 raw.json: {raw_path}", file=sys.stderr)
         return 1
 
-    # ── 读取 raw.json ─────────────────────────────────────
     try:
         video, parts = load_parts(raw_path)
     except (json.JSONDecodeError, OSError) as e:

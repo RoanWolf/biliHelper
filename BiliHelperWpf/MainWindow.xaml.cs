@@ -179,6 +179,23 @@ public partial class MainWindow : Window
         UpdateThemeIcon();
     }
 
+    /// <summary>
+    /// 打开 AI 大模型设置窗。
+    /// </summary>
+    private SettingsWindow? _settingsWindow;
+
+    private void SettingsButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_settingsWindow != null && _settingsWindow.IsVisible)
+        {
+            _settingsWindow.Activate();
+            return;
+        }
+        _settingsWindow = new SettingsWindow { Owner = this };
+        _settingsWindow.Closed += (_, _) => _settingsWindow = null;
+        _settingsWindow.Show();
+    }
+
     private void UpdateThemeIcon()
     {
         if (ThemeToggleIcon != null)

@@ -1,87 +1,31 @@
-"""AiHelper — 基于 DeepSeek (OpenAI 兼容接口) 的 AI 工具集。
+"""AiHelper — 基于 OpenAI 兼容接口 (DeepSeek 等) 的 AI 工具集。
 
 用法:
     from AiHelper.reading import AIClient
 
-    client = AIClient.from_env()          # 自动读取 BiliHelperCore/.env
+    client = AIClient.from_env()          # 读取环境变量（WPF 设置窗注入）
     result = client.chat(prompt)          # 返回 JSON 字符串
 
-.env 配置项:
-    DEEPSEEK_API_KEY  必填，DeepSeek API Key
+环境变量配置（由 WPF 设置窗注入子进程，缺失时回退默认值）:
+    DEEPSEEK_API_KEY  必填，API Key（未注入时抛 ValueError）
     DEEPSEEK_BASE_URL 可选，默认 https://api.deepseek.com
     DEEPSEEK_MODEL    可选，默认 deepseek-v4-flash
 """
 
 import os
-from pathlib import Path
 
-from openai import OpenAI
+from openai import (
+    APIConnectionError,
+    APITimeoutError,
+    AuthenticationError,
+    NotFoundError,
+    OpenAI,
+    RateLimitError,
+)
 
 # 默认配置
 _DEFAULT_BASE_URL = "https://api.deepseek.com"
 _DEFAULT_MODEL = "deepseek-v4-flash"
-
-
-def load_env_file(
-    env_path: str | Path | None = None,
-    overwrite: bool = False,
-) -> Path | None:
-    """加载 .env 文件到 os.environ。
-
-    轻量级 .env 解析器（不依赖 python-dotenv）：
-      - 每行 ``KEY=VALUE``，支持 ``#`` 行注释
-      - 值支持可选的双引号/单引号包裹
-      - 默认不覆盖已存在的环境变量（overwrite=True 时强制覆盖）
-
-    Args:
-        env_path: 显式指定 .env 文件路径；为 None 时自动查找：
-                  1. BiliHelperCore/.env（当前文件上一级，即 Python 包根目录）
-                  2. AiHelper/.env（当前文件同目录）
-                  3. 工作目录 .env
-
-    Returns:
-        成功加载的 .env 路径；未找到文件返回 None。
-    """
-    if env_path is None:
-        here = Path(__file__).resolve().parent  # .../BiliHelperCore/AiHelper
-        candidates = [
-            here.parent / ".env",  # .../BiliHelperCore/.env
-            here / ".env",  # .../BiliHelperCore/AiHelper/.env
-            Path.cwd() / ".env",  # 工作目录 .env
-        ]
-        for cand in candidates:
-            if cand.is_file():
-                env_path = cand
-                break
-        else:
-            return None
-
-    env_path = Path(env_path)
-    if not env_path.is_file():
-        return None
-
-    for raw_line in env_path.read_text(encoding="utf-8").splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#"):
-            continue
-        if "=" not in line:
-            continue
-
-        key, _, value = line.partition("=")
-        key = key.strip()
-        value = value.strip()
-
-        # 去除可选的包裹引号（单引号或双引号）
-        if len(value) >= 2 and value[0] == value[-1] and value[0] in ('"', "'"):
-            value = value[1:-1]
-
-        if not key:
-            continue
-        if not overwrite and key in os.environ:
-            continue
-        os.environ[key] = value
-
-    return env_path
 
 
 class AIClient:
@@ -90,29 +34,18 @@ class AIClient:
         self.model = model
 
     @classmethod
-    def from_env(
-        cls,
-        env_path: str | Path | None = None,
-    ) -> "AIClient":
-        """从环境变量构造 AIClient。
-
-        自动加载 .env 文件（查找顺序见 load_env_file），
-        然后读取 DEEPSEEK_API_KEY / DEEPSEEK_BASE_URL / DEEPSEEK_MODEL。
-
-        Args:
-            env_path: 显式指定 .env 文件路径；None 时自动查找。
+    def from_env(cls) -> "AIClient":
+        """从环境变量构造 AIClient（WPF 设置窗注入 DEEPSEEK_*，缺失时回退默认值）。
 
         Raises:
-            ValueError: 缺少 DEEPSEEK_API_KEY。
+            ValueError: 缺少 DEEPSEEK_API_KEY（请在 WPF 设置窗 ⚙️ 中填写）。
         """
-        load_env_file(env_path)
-
         api_key = os.environ.get("DEEPSEEK_API_KEY", "").strip()
         base_url = os.environ.get("DEEPSEEK_BASE_URL", _DEFAULT_BASE_URL).strip()
         model = os.environ.get("DEEPSEEK_MODEL", _DEFAULT_MODEL).strip()
 
         if not api_key:
-            raise ValueError("未找到 DEEPSEEK_API_KEY，请检查 BiliHelperCore/.env 文件")
+            raise ValueError("未找到 DEEPSEEK_API_KEY，请在 WPF 设置窗（⚙️）中填写 API Key")
 
         return cls(api_key=api_key, base_url=base_url, model=model)
 
@@ -125,3 +58,32 @@ class AIClient:
         )
 
         return response.choices[0].message.content
+
+    def test_connectivity(self) -> tuple[bool, str]:
+        """轻量连通性测试：发起一次极小请求，不返回正文。
+
+        用于 WPF 设置页「测试连通性」按钮。区分三类失败：
+
+        Returns:
+            (True, "连接成功") 成功；
+            (False, 分类提示信息) 失败。
+        """
+        try:
+            self.client.chat.completions.create(
+                model=self.model,
+                messages=[{"role": "user", "content": "hi"}],
+                max_tokens=1,
+            )
+        except AuthenticationError:
+            return False, "API Key 无效或已过期（认证失败）"
+        except NotFoundError:
+            return False, f"模型不存在：{self.model}（请检查模型名或 base_url）"
+        except RateLimitError:
+            return False, "触发限流（额度不足或请求过频）"
+        except APIConnectionError:
+            return False, "无法连接到 base_url，请检查网络或地址"
+        except APITimeoutError:
+            return False, "连接超时，请检查网络"
+        except Exception as e:  # noqa: BLE001 — 未知错误兜底
+            return False, f"连接失败（未知错误）：{e}"
+        return True, "连接成功"
