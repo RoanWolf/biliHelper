@@ -340,8 +340,17 @@
                             Height="38" Margin="8,0,0,0"
                             Padding="14,0"
                             FontSize="13" />
-                    <TextBlock Grid.Column="3" Text="🍪" FontSize="16" VerticalAlignment="Center" Margin="10,0,0,0"
-                               ToolTip="已配置 cookies (www.bilibili.com_cookies.txt)" />
+                    <!-- B 站 cookie 状态按钮 -->
+                    <Button Grid.Column="3"
+                            x:Name="CookieButton"
+                            FontSize="16"
+                            Style="{DynamicResource SecondaryButtonStyle}"
+                            Height="38" Margin="8,0,0,0"
+                            Padding="10,0"
+                            Click="CookieButton_Click"
+                            ToolTip="{Binding CookieTooltip}">
+                        <TextBlock x:Name="CookieIcon" Text="🍪" FontSize="16" />
+                    </Button>
                 </Grid>
                 <TextBlock Text="💡 支持 BV 号 / 完整 URL / 多P合集 / 自动识别字幕语言"
                            FontSize="11" Foreground="{DynamicResource TextMutedBrush}" Margin="0,4,0,0" />

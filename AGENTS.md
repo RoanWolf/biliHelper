@@ -4,7 +4,7 @@ Bilibili subtitle extraction + desktop viewer + AI polish. **Python backend is a
 
 ## Layout
 - `BiliHelperCore/` — Python backend (`uv` project, requires-python >=3.13). No framework.
-  - `main.py` (CLI, --stream JSONL), `bili_helper.py` (yt-dlp + SRT), `AiHelper/` (`ai_read.py` per-part AI polish; `reading.py` = AIClient + custom `.env` loader)
+  - `main.py` (CLI, --stream JSONL), `bili_helper.py` (yt-dlp + SRT), `analyze_sub.py` (**standalone diagnostic tool, not part of the WPF pipeline**), `auth.py` (B站扫码登录/续期/探测, stdout JSONL), `AiHelper/` (`ai_read.py` per-part AI polish; `reading.py` = AIClient + custom `.env` loader)
 - `BiliHelperWpf/` — .NET WPF, `net10.0-windows`, **zero NuGet packages** (pure native). `Services/` spawn Python and read pipes; `ViewModels/MainViewModel.cs` is the state/concurrency hub.
   - `Themes/` (`Light.xaml`, `Dark.xaml` = 34 same-key brushes, `ScrollBar.xaml`), `ThemeManager.cs` (runtime swap + persistence), `App.xaml.cs` loads persisted theme on startup.
 
@@ -26,12 +26,14 @@ No test project and no linter config exist — use `dotnet build` / `uv` for ver
 
 ## Paths / repo-relative gotchas
 - Python and cookie paths are resolved by walking up from the app base directory until a folder named **`bilihelperCore`** is found (`FindProjectRoot` / `FindDirContaining`). Works because Windows is case-insensitive; keep the relative folder layout when moving output.
-- Cookies: `BiliHelperCore/www.bilibili.com_cookies.txt` (Netscape format), required for subtitle access, gitignored.
+- Cookies: B站登录态不再硬编码。**`auth.py` 扫码登录后写到 `%LocalAppData%\BiliHelper\cookies.json`(权威) + `cookies.txt`(Netscape, 供 yt-dlp)**. `BiliService.cs` 的 cookie 路径指向该 LocalAppData `cookies.txt`. 拔掉扫码登录就无 cookie → 需扫码. 旧文件 `www.bilibili.com_cookies.txt` 已被新流程取代.
+- B站登录可用 `refresh_cookie.py` 逻辑续期(约1月过期)，WPF 启动时 `auth.py check --refresh` 自动续期.
 - API key: copy `BiliHelperCore/.env.example` → `.env`. `.env` is gitignored. `AIClient.load_env_file` is a hand-rolled parser (no python-dotenv).
 - Persistence (WPF only, no DB): `BiliHelperWpf/history/YYYYMMDD/BVxxxx/raw.json` (full video) and `read.json` (`parts[]`, incremental per-part, lock-protected concurrent writes).
 
 ## AI polish conventions
-- One DeepSeek call per part (`response_format=json_object`), parse failure retries once.
+- One DeepSeek call per part (`response_format=json_object`), parse failure retries once; default model is hardcoded `deepseek-v4-flash` in `reading.py`.
+- `ai_read.py` reads `raw.json` with `encoding="utf-8-sig"` (BOM-tolerant) and clamps subtitle indices to `1..subtitle_count`.
 - Cancellation + per-part independent `CancellationTokenSource` → concurrent polish of multiple parts.
 
 ## Theming contracts (do not break)
@@ -43,3 +45,4 @@ No test project and no linter config exist — use `dotnet build` / `uv` for ver
 
 ## Ignored / unrelated
 - `notes/` contains personal OS/study notes — not part of the codebase. `_log/`, `history/`, `.env`, cookies are gitignored.
+- WPF 侧登录流程: `AuthService.cs` spawn 调 `auth.py`; `LoginWindow.xaml` 独立扫码窗; 主界面 `MainWindow.xaml` cookie 按钮 🍪(有效)/⚠(无效, 点击弹扫码) 由 `MainViewModel.CookieState` 驱动; 启动 `OnContentRendered` 探测, 无 cookie 首次自动弹窗.

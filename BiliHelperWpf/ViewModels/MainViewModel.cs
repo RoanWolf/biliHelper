@@ -15,7 +15,24 @@ public class MainViewModel : ViewModelBase
 {
     private readonly BiliService _biliService = new();
     private readonly AiReadService _aiReadService = new();
+    private readonly AuthService _authService = new();
     private CancellationTokenSource? _cts;
+
+    // ── Cookie 状态 ─────────────────────────────────────────
+    private CookieState _cookieState;
+    public CookieState CookieState
+    {
+        get => _cookieState;
+        private set => SetProperty(ref _cookieState, value);
+    }
+
+    /// <summary>cookie 状态描述（tooltip）。</summary>
+    private string _cookieTooltip = string.Empty;
+    public string CookieTooltip
+    {
+        get => _cookieTooltip;
+        private set => SetProperty(ref _cookieTooltip, value);
+    }
 
     // ── 输入 ────────────────────────────────────────────────
     private string _url = string.Empty;
@@ -275,6 +292,63 @@ public class MainViewModel : ViewModelBase
                 await LoadHistoryItem(item);
         });
         AiReadCommand = new RelayCommand(async _ => await GenerateReadAsync(), _ => CanAiRead);
+    }
+
+    /// <summary>
+    /// 启动时探测 cookie 状态（顺带自动续期）。返回是否已登录。
+    /// </summary>
+    public async Task<bool> RefreshCookieStatusAsync(CancellationToken ct = default)
+    {
+        var (state, message) = await _authService.CheckAsync(autoRefresh: true, ct);
+        ApplyCookieState(state, message);
+        return CookieState == CookieState.Valid;
+    }
+
+    /// <summary>
+    /// 打开扫码登录。成功后刷新 cookie 状态。
+    /// 回调在后台线程触发，UI 需自行切回主线程。
+    /// </summary>
+    public Task<bool> LoginAsync(
+        Action<string> onQr,
+        Action<int> onStatus,
+        Action<string>? onError = null,
+        CancellationToken ct = default)
+    {
+        return _authService.LoginAsync(
+            onQr,
+            onStatus,
+            _ => ApplyCookieState("valid", "B 站已登录"),
+            onError ?? (_ => { }),
+            ct);
+    }
+
+    /// <summary>
+    /// 删除本地 cookie，状态置为未登录。
+    /// </summary>
+    public async Task DeleteCookiesAsync(CancellationToken ct = default)
+    {
+        bool deleted = await _authService.DeleteAsync(ct);
+        App.Log($"MainViewModel: 删除 cookie 结果: {deleted}");
+        CookieState = CookieState.None;
+        CookieTooltip = "未登录 B 站";
+    }
+
+    private async Task RefreshCookieStatusAsync()
+    {
+        var (state, message) = await _authService.CheckAsync(autoRefresh: false);
+        ApplyCookieState(state, message);
+    }
+
+    private void ApplyCookieState(string state, string message)
+    {
+        CookieState = state switch
+        {
+            "valid" => CookieState.Valid,
+            _ => CookieState.Invalid,
+        };
+        CookieTooltip = string.IsNullOrEmpty(message)
+            ? (CookieState == CookieState.Valid ? "B 站已登录" : "B 站未登录")
+            : message;
     }
 
     /// <summary>

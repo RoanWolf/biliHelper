@@ -8,22 +8,23 @@ B 站字幕提取 + 桌面查看器 + AI 润色。Python 后端负责字幕抓�
 
 ```
 biliHelper/
-├── bilihelperCore/               ← Python 后端（纯数据管道）
+├── BiliHelperCore/                ← Python 后端（纯数据管道）
 │   ├── main.py                    CLI 入口（字幕抓取）
 │   ├── bili_helper.py             字幕提取核心逻辑（yt-dlp + SRT 解析）
+│   ├── auth.py                    B 站扫码登录 / 续期 / 探测（供 WPF 子进程调用）
 │   ├── analyze_sub.py             字幕分析工具
-│   ├── AiHelper/                  AI 模块（DeepSeek）
+│   ├── AiHelper/                   AI 模块（DeepSeek）
 │   │   ├── reading.py             AIClient 封装 + .env 加载
 │   │   └── ai_read.py             单分P AI 润色脚本（供 WPF 子进程调用）
-│   ├── pyproject.toml             uv 项目配置（依赖 openai + yt-dlp）
+│   ├── pyproject.toml             uv 项目配置（依赖 openai + yt-dlp + requests + qrcode）
 │   ├── uv.lock                    依赖锁
-│   ├── .venv/                     虚拟环境（含 yt-dlp、openai）
+│   ├── .venv/                     虚拟环境
 │   ├── .env                       DeepSeek API key（已被 .gitignore 忽略）
-│   ├── .env.example               .env 模板（可提交）
-│   └── www.bilibili.com_cookies.txt  B 站登录态
+│   └── .env.example               .env 模板（可提交）
 │
 ├── BiliHelperWpf/                 ← WPF 桌面端（.NET 10）
 │   ├── Models/                    数据模型
+│   │   ├── AuthEvent.cs           登录事件 + CookieState 枚举
 │   │   ├── BiliVideoInfo.cs       顶层视频信息
 │   │   ├── PartInfo.cs            分P 信息
 │   │   ├── SubtitleEntry.cs       单条字幕
@@ -35,9 +36,10 @@ biliHelper/
 │   ├── Services/
 │   │   ├── BiliService.cs         字幕抓取子进程管理 + 管道读取
 │   │   ├── AiReadService.cs       AI 润色子进程管理 + 管道读取
+│   │   ├── AuthService.cs         B 站登录子进程管理（auth.py）+ 管道读取
 │   │   └── HistoryService.cs      本地 JSON 文件存储（raw/read）
 │   ├── ViewModels/
-│   │   ├── MainViewModel.cs       主视图模型（状态管理、并发控制）
+│   │   ├── MainViewModel.cs       主视图模型（状态管理、并发控制、cookie 状态）
 │   │   ├── RelayCommand.cs        ICommand 实现
 │   │   └── ViewModelBase.cs       INotifyPropertyChanged 基类
 │   ├── Converters/
@@ -48,15 +50,16 @@ biliHelper/
 │   │   ├── Light.xaml             浅色主题（34 个画刷，运行时可切换）
 │   │   ├── Dark.xaml              深色主题（与 Light 同 key）
 │   │   └── ScrollBar.xaml         通用细滚动条（颜色随主题）
-│   ├── ThemeManager.cs            主题切换 / 持久化（%LocalAppData%\BiliHelper\theme.txt）
-│   ├── MainWindow.xaml            主界面（颜色全部走 DynamicResource）
-│   ├── MainWindow.xaml.cs         代码隐藏（含 DWM 圆角、主题切换按钮）
-│   ├── WpfHelper.cs               可视化树工具方法
-│   └── history/                   本地历史记录（用户数据，gitignore）
+│   ├── ThemeManager.cs             主题切换 / 持久化（%LocalAppData%\BiliHelper\theme.txt）
+│   ├── LoginWindow.xaml(.cs)       独立的 B 站扫码登录窗
+│   ├── MainWindow.xaml             主界面（含 🍪/⚠ cookie 按钮，颜色走 DynamicResource）
+│   ├── MainWindow.xaml.cs          窗口隐藏（含 DWM 圆角、主题切换、登录窗开关）
+│   ├── WpfHelper.cs                可视化树工具方法
+│   └── history/                    本地历史记录（用户数据，gitignore）
 │
-├── _log/                          运行时日志（gitignore）
+├── _log/                           运行时日志（gitignore）
 ├── .gitignore
-└── README.md                      ← 本文档
+└── README.md                        ← 本文档
 ```
 
 ---
@@ -166,6 +169,57 @@ BiliHelperWpf/history/
 
 ---
 
+## B 站登录（扫码）
+
+字幕 / 历史 CSV 导出等需要 B 站登录态，登录态走**扫码登录**（不再硬编码 cookie）。
+
+### 存储位置（每台机器一份，非 git 追踪）
+
+```
+%LocalAppData%\BiliHelper\
+├── cookies.json    权威存储 {cookies, refresh_token, ...}
+├── cookies.txt     给 yt-dlp 用的 Netscape 格式（BiliService 读取）
+├── qr_login.png    扫码登录窗显示的二维码
+└── theme.txt       主题偏好
+```
+
+### 调用链路（扫码登录）
+
+```
+WPF 启动 → OnContentRendered → auth.py check --refresh   ← 自动探测 + 续期
+                                                 └─ 无 cookie → 自动弹扫码窗
+    │
+    ▼
+MainViewModel.LoginAsync()
+    │
+    ▼
+AuthService.LoginAsync(onQr, onStatus, onError, ...)
+    │
+    ├── Process.Start(python.exe, auth.py login)
+    │   │   ① 调 finger/spi 取设备指纹 (buvid3/buvid4) 固化到会话
+    │   │   ② qrcode/generate 生成 url + qrcode_key → 渲染 PNG
+    │   │   ③ 每 1.5s 轮询 qrcode/poll，状态码：
+    │   │        86101 等待扫码 / 86090 已扫码 / 0 成功 / 86038 过期
+    │   │   成功 → 合并 Set-Cookie + URL query 提取真实凭证
+    │   │         (SESSDATA/bili_jct/DedeUserID...) → 写 cookies.json/.txt
+    │   │   完成 → stdout: {type:qr/status/success/error}  JSONL
+    │   ▼
+  读 stdout → LoginWindow 更新二维码 / 状态文本 / 成功后关窗
+```
+
+### 交互细节
+
+- 主界面标题栏 cookie 按钮：**🍪**(有效) / **⚠**(无效或未登录，点击弹扫码窗)
+- 点 🍪 → 「退出登录」确认 → 删除本地 cookie，状态置为未登录
+- 登录窗「重新生成」会取消上一轮轮询并杀旧子进程，保证**同一时刻只有一个轮询存活**（避免多进程竞争同一 `qr_login.png` 导致显示与轮询 key 不一致）
+
+### 已知注意事项
+
+- **B 站对高频连续扫码有风控**：短时间连续 generate/扫码时，新 key 可能不被确认（一直 86101）。单次等待 + 扫码即可正常通过，属 B 站侧限流而非代码缺陷。
+- cookie 约 1 月过期，`auth.py check --refresh` 用 `refresh_token` 自动续期（WPF 启动时触发）。
+
+---
+
 ## AI 润色（DeepSeek）
 
 ### 配置
@@ -229,6 +283,8 @@ WPF 端支持浅色 / 深色两种主题，运行时可切换（标题栏 ☀️
 | 包管理 | uv | — |
 | 字幕下载 | yt-dlp | ≥ 2024.1 |
 | AI 调用 | openai (DeepSeek 兼容接口) | ≥ 2.53.0 |
+| B 站登录 | requests + qrcode + pillow | — |
+| 登录续期 | cryptography | — |
 | 桌面框架 | .NET WPF | net10.0-windows |
 | 核心依赖 | 零 NuGet 包 | 纯 .NET 原生 |
 

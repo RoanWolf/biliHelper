@@ -17,7 +17,9 @@ public class BiliService
 {
     private static readonly string ProjectRoot = FindProjectRoot();
     private static readonly string PythonScript = Path.Combine(ProjectRoot, "bilihelperCore", "main.py");
-    private static readonly string CookieFile = Path.Combine(ProjectRoot, "bilihelperCore", "www.bilibili.com_cookies.txt");
+    private static readonly string CookieFile = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "BiliHelper", "cookies.txt");
     private static readonly string PythonExe = Path.Combine(ProjectRoot, "bilihelperCore", ".venv", "Scripts", "python.exe");
 
     /// <summary>

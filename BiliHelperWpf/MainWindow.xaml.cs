@@ -79,7 +79,27 @@ public partial class MainWindow : Window
                     }
                 });
             }
+
+            // cookie 状态变化 -> 更新图标
+            if (e.PropertyName == nameof(MainViewModel.CookieState))
+                Dispatcher.BeginInvoke(UpdateCookieIcon);
         };
+    }
+
+    protected override async void OnContentRendered(EventArgs e)
+    {
+        base.OnContentRendered(e);
+        // 启动时探测 cookie 状态；无 cookie 时首次自动弹扫码窗
+        bool valid = await _vm.RefreshCookieStatusAsync();
+        UpdateCookieIcon();
+        if (!valid)
+            OpenLoginWindow();
+    }
+
+    private void UpdateCookieIcon()
+    {
+        if (CookieIcon == null) return;
+        CookieIcon.Text = _vm.CookieState == Models.CookieState.Valid ? "🍪" : "⚠";
     }
 
     /// <summary>
@@ -219,6 +239,50 @@ public partial class MainWindow : Window
     {
         if (new WindowInteropHelper(this).Handle != IntPtr.Zero)
             ApplyWindowCornerRoundness();
+    }
+
+    /// <summary>
+    /// 点击 cookie 状态按钮：有效时询问退出登录，无效/未登录时弹扫码窗。
+    /// </summary>
+    private async void CookieButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_vm.CookieState == Models.CookieState.Valid)
+        {
+            var confirm = MessageBox.Show(
+                "确定要退出 B 站登录并删除本地 cookie 吗？",
+                "退出登录",
+                MessageBoxButton.OKCancel,
+                MessageBoxImage.Question);
+            if (confirm != MessageBoxResult.OK)
+                return;
+
+            await _vm.DeleteCookiesAsync();
+            UpdateCookieIcon();
+        }
+        else
+        {
+            OpenLoginWindow();
+        }
+    }
+
+    private LoginWindow? _loginWindow;
+
+    private void OpenLoginWindow()
+    {
+        if (_loginWindow != null && _loginWindow.IsVisible)
+        {
+            _loginWindow.Activate();
+            return;
+        }
+        _loginWindow = new LoginWindow(_vm, this, () =>
+        {
+            Dispatcher.BeginInvoke(() =>
+            {
+                UpdateCookieIcon();
+            });
+        });
+        _loginWindow.Closed += (_, _) => _loginWindow = null;
+        _loginWindow.Show();
     }
 
 }

@@ -7,4 +7,8 @@ requires-python = ">=3.13"
 dependencies = [
     "openai>=2.53.0",
     "yt-dlp>=2024.1",
+    "requests>=2.30.0",
+    "qrcode>=7.4",
+    "pillow>=9.0.0",
+    "cryptography>=41.0.0",
 ]
