@@ -13,51 +13,122 @@
     <ScrollViewer VerticalScrollBarVisibility="Auto"
                   HorizontalScrollBarVisibility="Disabled"
                   Padding="0">
-        <StackPanel MaxWidth="520" HorizontalAlignment="Left">
-            <TextBlock Text="账号"
-                       Style="{StaticResource FluentPageTitleStyle}" />
-            <TextBlock Text="B 站登录态用于拉取需要会员 / 登录的视频字幕"
-                       Style="{StaticResource FluentPageSubtitleStyle}" />
+        <StackPanel>
+            <!-- ═══ 标题行：左标题 + 右上角操作按钮（与 AI 面板布局统一，宽度与卡片对齐） ═══ -->
+            <Grid Width="540" HorizontalAlignment="Left">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Text="账号"
+                           Style="{StaticResource FluentPageTitleStyle}"
+                           VerticalAlignment="Center" />
+
+                <!-- 退出登录：仅已登录时显示 -->
+                <Button Grid.Column="1"
+                        Content="退出登录"
+                        Style="{StaticResource FluentButtonStyle}"
+                        FontSize="13"
+                        VerticalAlignment="Center"
+                        Visibility="{Binding Visibility, ElementName=LoggedInPanel}"
+                        Click="LogoutButton_Click" />
+            </Grid>
+
             <Border Style="{StaticResource FluentSectionDividerStyle}" />
 
-            <!-- ═══ 已登录 ═══ -->
+            <!-- ═══ 已登录：欢迎卡片（水平布局，固定宽度靠左） ═══ -->
             <StackPanel x:Name="LoggedInPanel" Visibility="Collapsed">
-                <Border Style="{StaticResource FluentCardStyle}" Padding="32,30">
-                    <StackPanel HorizontalAlignment="Center">
-                        <Border Width="56" Height="56"
-                                CornerRadius="28"
-                                Background="{DynamicResource SurfaceSelectedBrush}"
-                                HorizontalAlignment="Center">
-                            <TextBlock Text="✓"
-                                       FontSize="26"
-                                       Foreground="{DynamicResource PrimaryBrush}"
-                                       HorizontalAlignment="Center"
-                                       VerticalAlignment="Center" />
+                <Border Style="{StaticResource FluentCardStyle}"
+                        Width="540"
+                        HorizontalAlignment="Left"
+                        Padding="28,26">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="18" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <!-- 左侧：头像 -->
+                        <Border Grid.Column="0"
+                                Width="80" Height="80"
+                                CornerRadius="40"
+                                Background="{DynamicResource SurfaceHoverBrush}"
+                                BorderBrush="{DynamicResource BorderBrush}"
+                                BorderThickness="1"
+                                VerticalAlignment="Top"
+                                ClipToBounds="True">
+                            <Grid>
+                                <Image x:Name="UserAvatar"
+                                       Stretch="UniformToFill"
+                                       RenderOptions.BitmapScalingMode="HighQuality"
+                                       ImageFailed="UserAvatar_ImageFailed" />
+                                <TextBlock x:Name="AvatarFallback"
+                                           Text="👤"
+                                           FontSize="34"
+                                           Foreground="{DynamicResource TextSecondaryBrush}"
+                                           HorizontalAlignment="Center"
+                                           VerticalAlignment="Center"
+                                           Visibility="Collapsed" />
+                            </Grid>
                         </Border>
-                        <TextBlock Text="已登录 B 站"
-                                   FontSize="16" FontWeight="SemiBold"
-                                   Foreground="{DynamicResource TextPrimaryBrush}"
-                                   HorizontalAlignment="Center"
-                                   Margin="0,16,0,0" />
-                        <TextBlock x:Name="StatusInfo"
-                                   FontSize="13"
-                                   Foreground="{DynamicResource TextSecondaryBrush}"
-                                   TextAlignment="Center"
-                                   TextWrapping="Wrap"
-                                   Margin="0,6,0,0" />
-                        <Button Content="退出登录"
-                                Style="{StaticResource FluentButtonStyle}"
-                                FontSize="13"
-                                HorizontalAlignment="Center"
-                                Margin="0,22,0,0"
-                                Click="LogoutButton_Click" />
-                    </StackPanel>
+
+                        <!-- 右侧：昵称 / UID / 状态 -->
+                        <StackPanel Grid.Column="2" VerticalAlignment="Top">
+                            <!-- 昵称 + 已登录标签 -->
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="Auto" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock x:Name="UserNameText"
+                                           Text="..."
+                                           FontSize="20" FontWeight="SemiBold"
+                                           Foreground="{DynamicResource TextPrimaryBrush}"
+                                           VerticalAlignment="Center" />
+                                <Border Grid.Column="1"
+                                        Background="{DynamicResource SurfaceSelectedBrush}"
+                                        CornerRadius="10"
+                                        Padding="10,3"
+                                        Margin="12,0,0,0"
+                                        VerticalAlignment="Center"
+                                        HorizontalAlignment="Left">
+                                    <TextBlock Text="已登录"
+                                               FontSize="11"
+                                               Foreground="{DynamicResource PrimaryBrush}"
+                                               FontWeight="SemiBold" />
+                                </Border>
+                            </Grid>
+
+                            <!-- UID -->
+                            <TextBlock x:Name="UserUidText"
+                                       FontSize="13"
+                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                       Margin="0,8,0,0" />
+
+                            <!-- 分隔线 -->
+                            <Border Height="1"
+                                    Background="{DynamicResource BorderBrush}"
+                                    Margin="0,16,0,14" />
+
+                            <!-- 状态提示（续期信息等） -->
+                            <TextBlock x:Name="StatusInfo"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource TextMutedBrush}"
+                                       TextWrapping="Wrap"
+                                       LineHeight="18" />
+                        </StackPanel>
+                    </Grid>
                 </Border>
             </StackPanel>
 
             <!-- ═══ 未登录：扫码 ═══ -->
             <StackPanel x:Name="LoginPanel" Visibility="Collapsed">
-                <Border Style="{StaticResource FluentCardStyle}" Padding="36,32">
+                <Border Style="{StaticResource FluentCardStyle}"
+                        Width="540"
+                        HorizontalAlignment="Left"
+                        Padding="36,32">
                     <StackPanel HorizontalAlignment="Center">
                         <TextBlock Text="扫码登录 B 站"
                                    FontSize="16" FontWeight="SemiBold"

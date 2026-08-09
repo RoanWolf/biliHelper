@@ -13,7 +13,7 @@
     <ScrollViewer VerticalScrollBarVisibility="Auto"
                   HorizontalScrollBarVisibility="Disabled"
                   Padding="0">
-        <StackPanel MaxWidth="620" HorizontalAlignment="Left">
+        <StackPanel>
             <!-- ═══ 页面标题 ═══ -->
             <TextBlock Text="外观"
                        Style="{StaticResource FluentPageTitleStyle}" />
@@ -22,7 +22,10 @@
             <Border Style="{StaticResource FluentSectionDividerStyle}" />
 
             <!-- ═══ 主题选择：左右并排 ═══ -->
-            <Border Style="{StaticResource FluentCardStyle}" Padding="28,24">
+            <Border Style="{StaticResource FluentCardStyle}"
+                    Width="540"
+                    HorizontalAlignment="Left"
+                    Padding="28,24">
                 <StackPanel>
                     <ContentControl Content="主题"
                                     FontSize="13" FontWeight="SemiBold"

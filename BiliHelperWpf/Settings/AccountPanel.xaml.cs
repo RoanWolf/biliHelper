@@ -1,11 +1,14 @@
 using System;
 using System.ComponentModel;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using BiliHelperWpf.Models;
+using BiliHelperWpf.Services;
 using BiliHelperWpf.ViewModels;
 
 namespace BiliHelperWpf.Settings;
@@ -14,14 +17,29 @@ namespace BiliHelperWpf.Settings;
 /// 账号面板：未登录时内嵌扫码登录，已登录时显示状态 + 退出。
 /// 复用 MainViewModel.LoginAsync / DeleteCookiesAsync 的业务逻辑。
 /// 轮询生命周期挂在 Loaded/Unloaded 上（切导航 / 关窗时自动取消）。
+///
+/// 并发安全：
+/// - 登录流程由 <see cref="_loginGate"/> 互斥串行 ——「重新生成」会先取消上一轮，
+///   并在 <see cref="StartLoginAsync"/> 中 await 旧任务彻底结束（含子进程 kill）
+///   再启动新的，保证同一时刻只有一个 auth.py 子进程存活，杜绝并发写
+///   cookies.json / cookies.txt 导致损坏。
+/// - <see cref="_runId"/> 单调递增，防止旧轮次的回调 / UI 更新干扰最新一次。
 /// </summary>
 public partial class AccountPanel : UserControl
 {
     private readonly MainViewModel _vm;
+
+    // 用户信息读取（欢迎卡片昵称/头像/UID）
+    private readonly AuthService _authService = new();
+
+    // 登录互斥闸门：串行化所有登录轮次
+    private readonly SemaphoreSlim _loginGate = new(1, 1);
+
     private CancellationTokenSource? _cts;
+    private Task? _loginTask;
     private bool _isPolling;
 
-    // 单调递增的登录轮次：防止旧的 RunLoginAsync 完成回调干扰最新一次。
+    // 单调递增的登录轮次：防止旧的登录回调干扰最新一次。
     private int _runId;
 
     public AccountPanel(MainViewModel vm)
@@ -58,6 +76,7 @@ public partial class AccountPanel : UserControl
         {
             StatusInfo.Text = string.IsNullOrEmpty(_vm.CookieTooltip) ? "B 站已登录" : _vm.CookieTooltip;
             StopPolling();
+            _ = LoadUserInfoAsync();
         }
         else if (!_isPolling)
         {
@@ -65,22 +84,94 @@ public partial class AccountPanel : UserControl
         }
     }
 
+    /// <summary>加载当前登录用户信息（昵称/头像/UID），填充欢迎卡片。</summary>
+    private async Task LoadUserInfoAsync()
+    {
+        try
+        {
+            var ev = await _authService.GetUserAsync();
+
+            if (!string.IsNullOrEmpty(ev.Uname))
+                UserNameText.Text = ev.Uname;
+            if (ev.Mid > 0)
+                UserUidText.Text = $"UID: {ev.Mid}";
+
+            // 头像：B 站 face 可能返回 http，统一转 https 避免加载受限；失败时显示占位图标
+            if (!string.IsNullOrEmpty(ev.Face))
+            {
+                var face = ev.Face.Replace("http://", "https://", StringComparison.OrdinalIgnoreCase);
+                var bmp = new BitmapImage();
+                bmp.BeginInit();
+                bmp.CacheOption = BitmapCacheOption.OnLoad;
+                bmp.UriSource = new Uri(face, UriKind.Absolute);
+                bmp.EndInit();
+                bmp.Freeze();
+                UserAvatar.Source = bmp;
+                AvatarFallback.Visibility = Visibility.Collapsed;
+            }
+        }
+        catch
+        {
+            // 用户信息加载失败不影响已登录状态，静默降级为占位显示
+        }
+    }
+
+    private void UserAvatar_ImageFailed(object sender, ExceptionRoutedEventArgs e)
+    {
+        UserAvatar.Source = null;
+        AvatarFallback.Visibility = Visibility.Visible;
+    }
+
     /// <summary>
-    /// 启动新一轮登录轮询。自动取消上一轮，保证同一时刻只有一个轮询存活。
+    /// 启动新一轮登录轮询。
+    /// 先取消上一轮并等它（含旧子进程 kill）完全结束，再启动新的 —— 同一时刻
+    /// 只有一个登录子进程存活，避免并发写 cookies 文件。
     /// </summary>
     private async Task StartLoginAsync()
     {
         int myRun = ++_runId;
+
+        // 取消上一轮，并等待其彻底退出（LoginAsync 返回 = 子进程已结束/已 kill）
         _cts?.Cancel();
-        _cts?.Dispose();
-        _cts = new CancellationTokenSource();
-        _isPolling = true;
-        var ct = _cts.Token;
+        Task? oldTask = _loginTask;
+        if (oldTask is not null)
+        {
+            try { await oldTask; }
+            catch (OperationCanceledException) { }
+        }
 
-        RegenButton.IsEnabled = false;
-        StatusText.Text = "正在生成二维码...";
-        QrImage.Source = null;
+        // 串行闸门：防止并发启动
+        await _loginGate.WaitAsync();
+        CancellationTokenSource? cts = null;
+        try
+        {
+            // 等待期间若面板已卸载 / 被 StopPolling，则放弃本轮
+            if (myRun != _runId)
+                return;
 
+            cts = new CancellationTokenSource();
+            _cts = cts;
+            _isPolling = true;
+            var ct = cts.Token;
+
+            RegenButton.IsEnabled = false;
+            StatusText.Text = "正在生成二维码...";
+            QrImage.Source = null;
+
+            _loginTask = LoginCoreAsync(myRun, ct);
+            await _loginTask;
+        }
+        finally
+        {
+            // 任务已 await 完成（含被取消/异常），dispose 安全；提前 return 时 cts 为 null
+            cts?.Dispose();
+            _loginGate.Release();
+        }
+    }
+
+    /// <summary>实际执行一轮登录：调用 MainViewModel.LoginAsync 并处理结果 UI。</summary>
+    private async Task LoginCoreAsync(int myRun, CancellationToken ct)
+    {
         bool success = false;
         string? error = null;
         try
@@ -117,18 +208,22 @@ public partial class AccountPanel : UserControl
         // 取消（非成功、无错误）时保持现状，等待重新生成
     }
 
-    private void ShowQr(string imagePath)
+    private void ShowQr(string imageBase64)
     {
         try
         {
+            var bytes = Convert.FromBase64String(imageBase64);
+            using var ms = new MemoryStream(bytes);
             var bmp = new BitmapImage();
             bmp.BeginInit();
             bmp.CacheOption = BitmapCacheOption.OnLoad;
-            bmp.UriSource = new Uri(imagePath, UriKind.Absolute);
+            bmp.StreamSource = ms;
             bmp.EndInit();
             bmp.Freeze();
             QrImage.Source = bmp;
             StatusText.Text = "等待扫码...";
+            // 二维码已就绪，允许用户随时重新生成（StartLoginAsync 会先取消并等旧轮次彻底结束）
+            RegenButton.IsEnabled = true;
         }
         catch (Exception ex)
         {
@@ -143,6 +238,7 @@ public partial class AccountPanel : UserControl
         {
             86101 => "等待扫码...",
             86090 => "已扫码，请在手机上确认",
+            86038 => "二维码已过期，请重新生成",
             _ => StatusText.Text,
         };
     }
@@ -168,7 +264,6 @@ public partial class AccountPanel : UserControl
     {
         _runId++;
         _cts?.Cancel();
-        _cts?.Dispose();
         _cts = null;
         _isPolling = false;
     }

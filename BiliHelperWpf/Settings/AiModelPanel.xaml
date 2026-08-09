@@ -13,9 +13,9 @@
     <ScrollViewer VerticalScrollBarVisibility="Auto"
                   HorizontalScrollBarVisibility="Disabled"
                   Padding="0">
-        <StackPanel MaxWidth="540" HorizontalAlignment="Left">
-            <!-- ═══ 标题行：左标题 + 右上角操作按钮 ═══ -->
-            <Grid>
+        <StackPanel>
+            <!-- ═══ 标题行：左标题 + 右上角操作按钮（宽度与卡片对齐） ═══ -->
+            <Grid Width="540" HorizontalAlignment="Left">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
@@ -46,7 +46,10 @@
             <Border Style="{StaticResource FluentSectionDividerStyle}" />
 
             <!-- ═══ 连接配置 ═══ -->
-            <Border Style="{StaticResource FluentCardStyle}" Padding="28,24">
+            <Border Style="{StaticResource FluentCardStyle}"
+                    Width="540"
+                    HorizontalAlignment="Left"
+                    Padding="28,24">
                 <StackPanel>
                     <ContentControl Content="连接配置"
                                     FontSize="13" FontWeight="SemiBold"
@@ -77,6 +80,8 @@
             <!-- 整卡着色跟随 TestResultText.Foreground（code-behind 设为 成功绿 / 失败红） -->
             <Border x:Name="TestResultBox"
                     Visibility="Collapsed"
+                    Width="540"
+                    HorizontalAlignment="Left"
                     BorderBrush="{DynamicResource BorderBrush}"
                     BorderThickness="1"
                     CornerRadius="8"
