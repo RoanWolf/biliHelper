@@ -11,7 +11,7 @@ biliHelper/
 ├── BiliHelperCore/                ← Python 后端（纯数据管道）
 │   ├── main.py                    CLI 入口（字幕抓取）
 │   ├── bili_helper.py             字幕提取核心逻辑（yt-dlp + SRT 解析）
-│   ├── auth.py                    B 站扫码登录 / 续期 / 探测（供 WPF 子进程调用）
+│   ├── auth.py                    B 站扫码登录 / 续期 / 探测 / 用户信息（供 WPF 子进程调用，二维码走 base64 不落盘、指纹持久化、cookies 原子写、confirm/refresh 用新 token）
 │   ├── analyze_sub.py             字幕分析工具
 │   ├── AiHelper/                   AI 模块（DeepSeek）
 │   │   ├── reading.py             AIClient 封装 + .env 加载
@@ -54,11 +54,11 @@ biliHelper/
 │   ├── SettingsWindow.xaml(.cs)    设置中心（分组导航：服务/个性化，RadioButton 主色药丸选中态；固定大小、圆角 + 外圈边框与主窗口区分）
 │   ├── Settings/
 │   │   ├── SettingsStyles.xaml     共享样式（页面标题/分组标题/卡片/按钮/输入框/导航药丸/主题选择卡，FontSize 由顶部统一控制）
-│   │   ├── AccountPanel.xaml(.cs)  账号面板：内嵌扫码登录 + 退出
+│   │   ├── AccountPanel.xaml(.cs)  账号面板：内嵌扫码登录（互斥串行防并发写）+ 欢迎卡片（头像/昵称/UID）+ 退出
 │   │   ├── AiModelPanel.xaml(.cs)  AI 大模型连接面板（API Key / Base URL / 模型，测试/保存按钮在标题行右上角，测试结果内联卡片）
 │   │   └── AppearancePanel.xaml(.cs) 主题选择面板（左右并排 + 迷你预览 + 右上角单选圈）
-│   ├── MainWindow.xaml             主界面（含 🍪/⚠ cookie 按钮，颜色走 DynamicResource）
-│   ├── MainWindow.xaml.cs          窗口隐藏（含 DWM 圆角、主题切换、设置中心开关）
+│   ├── MainWindow.xaml             主界面（标题栏无 cookie/设置按钮；URL 工具行含「⚙️ 配置」入口，颜色走 DynamicResource）
+│   ├── MainWindow.xaml.cs          窗口隐藏（含 DWM 圆角、设置中心开关）
 │   ├── WpfHelper.cs                可视化树工具方法
 │   └── history/                    本地历史记录（用户数据，gitignore）
 │
@@ -183,9 +183,9 @@ BiliHelperWpf/history/
 
 ```
 %LocalAppData%\BiliHelper\
-├── cookies.json    权威存储 {cookies, refresh_token, ...}
-├── cookies.txt     给 yt-dlp 用的 Netscape 格式（BiliService 读取）
-├── qr_login.png    扫码登录窗显示的二维码
+├── cookies.json    权威存储 {cookies, refresh_token, ...}（原子写入，绝不半截）
+├── cookies.txt     给 yt-dlp 用的 Netscape 格式（BiliService 读取，原子写入）
+├── fingerprint.json 设备指纹 buvid3/buvid4（跨进程复用，降低风控）
 ├── theme.txt       主题偏好
 └── ai_settings.json AI 大模型连接设置（API key / base_url / model）
 ```
@@ -198,7 +198,9 @@ WPF 启动 → OnContentRendered → auth.py check --refresh   ← 自动探测 
     │
     ▼
 AccountPanel.StartLoginAsync()   （内嵌于设置中心，轮询挂 Loaded/Unloaded）
-    │
+    │   并发安全：登录流程互斥串行（SemaphoreSlim）——「重新生成」先取消上一轮并
+    │   await 旧任务彻底结束（含子进程 kill）再启动新的，保证同一时刻只有一个 auth.py
+    │   子进程存活，杜绝并发写 cookies 文件。
     ▼
 MainViewModel.LoginAsync()
     │
@@ -206,28 +208,35 @@ MainViewModel.LoginAsync()
 AuthService.LoginAsync(onQr, onStatus, onError, ...)
     │
     ├── Process.Start(python.exe, auth.py login)
-    │   │   ① 调 finger/spi 取设备指纹 (buvid3/buvid4) 固化到会话
-    │   │   ② qrcode/generate 生成 url + qrcode_key → 渲染 PNG
+    │   │   ① 复用本地 fingerprint.json 设备指纹；无则调 finger/spi 拉取并落盘
+    │   │   ② qrcode/generate 生成 url + qrcode_key → 内存生成 PNG → base64
+    │   │         （不再落盘 qr_login.png，避免并发写图竞争）
     │   │   ③ 每 1.5s 轮询 qrcode/poll，状态码：
-    │   │        86101 等待扫码 / 86090 已扫码 / 0 成功 / 86038 过期
+    │   │        86101 等待扫码 / 86090 已扫码 / 0 成功 / 86038 立即过期报错
     │   │   成功 → 合并 Set-Cookie + URL query 提取真实凭证
-    │   │         (SESSDATA/bili_jct/DedeUserID...) → 写 cookies.json/.txt
-    │   │   完成 → stdout: {type:qr/status/success/error}  JSONL
+    │   │         (SESSDATA/bili_jct/DedeUserID...) → 原子写 cookies.json/.txt
+    │   │   完成 → stdout: {type:qr/status/success/error}  JSONL（qr 带 image_base64）
     │   ▼
-  读 stdout → AccountPanel 更新二维码 / 状态文本 / 成功后刷新 cookie 状态
+  读 stdout → AccountPanel 从 base64 解码显示二维码 / 更新状态 / 成功后刷新 cookie 状态
+    │
+    ▼
+AccountPanel.LoadUserInfoAsync()   （已登录时展示欢迎卡片）
+    │   └─ auth.py user → GET x/web-interface/nav → {uname, face, mid}
+    │         → 头像(网络图，失败回退👤) + 昵称 + UID 欢迎卡片
 ```
 
 ### 交互细节
 
 - 主窗口标题栏**已无** cookie 按钮（🍪/⚠ 随扫码登录并入设置中心一并移除）——登录态入口统一在设置中心账号面板；设置中心由 **URL 工具行「⚙️ 配置」按钮** 打开（非标题栏）
-- 账号面板已登录态显示「退出登录」→ 删除本地 cookie，状态置为未登录
-- 账号面板「重新生成」会取消上一轮轮询并杀旧子进程，保证**同一时刻只有一个轮询存活**（避免多进程竞争同一 `qr_login.png` 导致显示与轮询 key 不一致）
+- 账号面板标题行右上角「退出登录」→ 删除本地 cookie，状态置为未登录（**不删** fingerprint.json，设备指纹可复用）
+- 已登录时展示**欢迎卡片**：头像（网络图，加载失败回退 👤 占位）+ 昵称 + UID + 已登录标签
+- 「重新生成」在二维码显示后即可用（轮询中也能点）：先取消并等旧轮次彻底结束再开新轮次，无并发
 - 启动 `OnContentRendered` 探测 cookie，无 cookie 时首次自动弹出设置中心账号面板
 
 ### 已知注意事项
 
 - **B 站对高频连续扫码有风控**：短时间连续 generate/扫码时，新 key 可能不被确认（一直 86101）。单次等待 + 扫码即可正常通过，属 B 站侧限流而非代码缺陷。
-- cookie 约 1 月过期，`auth.py check --refresh` 用 `refresh_token` 自动续期（WPF 启动时触发）。
+- cookie 约 1 月过期，`auth.py check --refresh` 用 `refresh_token` 自动续期（WPF 启动时触发）；确认刷新（`confirm/refresh`）使用**新**下发的 refresh_token（响应未给时回退旧的），`cookies.json/.txt` 均为原子写入，进程被杀也不留半截文件。
 
 ---
 
