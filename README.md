@@ -219,7 +219,7 @@ AuthService.LoginAsync(onQr, onStatus, onError, ...)
 
 ### 交互细节
 
-- 主窗口标题栏**已无** cookie 按钮（🍪/⚠ 随扫码登录并入设置中心一并移除）——登录态入口统一在设置中心账号面板
+- 主窗口标题栏**已无** cookie 按钮（🍪/⚠ 随扫码登录并入设置中心一并移除）——登录态入口统一在设置中心账号面板；设置中心由 **URL 工具行「⚙️ 配置」按钮** 打开（非标题栏）
 - 账号面板已登录态显示「退出登录」→ 删除本地 cookie，状态置为未登录
 - 账号面板「重新生成」会取消上一轮轮询并杀旧子进程，保证**同一时刻只有一个轮询存活**（避免多进程竞争同一 `qr_login.png` 导致显示与轮询 key 不一致）
 - 启动 `OnContentRendered` 探测 cookie，无 cookie 时首次自动弹出设置中心账号面板
@@ -235,7 +235,7 @@ AuthService.LoginAsync(onQr, onStatus, onError, ...)
 
 ### 配置
 
-唯一入口是 **WPF 设置中心**（标题栏 ⚙️，`SettingsWindow` → `Settings/AiModelPanel`）：填 API Key / Base URL / 模型，点「测试连通性」验证后保存。持久化到 `%LocalAppData%\BiliHelper\ai_settings.json`（明文，与 cookie 同一目录同一安全级别）。
+唯一入口是 **WPF 设置中心**（URL 工具行「⚙️ 配置」按钮打开，`SettingsWindow` → `Settings/AiModelPanel`）：填 API Key / Base URL / 模型，点「测试连通性」验证后保存。持久化到 `%LocalAppData%\BiliHelper\ai_settings.json`（明文，与 cookie 同一目录同一安全级别）。
 
 **注入机制**：WPF 启动 Python 子进程时，把设置窗中**非空**的字段通过环境变量 `DEEPSEEK_API_KEY` / `DEEPSEEK_BASE_URL` / `DEEPSEEK_MODEL` 注入；空字段不注入，Python 端回退到默认值（BaseUrl 默认 `https://api.deepseek.com`，模型默认 `deepseek-v4-flash`）。API Key 为空则明确报错并引导去设置窗填写。
 
@@ -262,7 +262,7 @@ AuthService.LoginAsync(onQr, onStatus, onError, ...)
 
 ## 多主题（浅 / 深色）
 
-WPF 端支持浅色 / 深色两种主题，运行时可切换（标题栏 ☀️/🌙 按钮），选择持久化到 `%LocalAppData%\BiliHelper\theme.txt`，下次启动自动恢复。
+WPF 端支持浅色 / 深色两种主题，运行时可在设置中心「外观」面板切换（标题栏 ☀️/🌙 按钮已随扫码登录合并移除），选择持久化到 `%LocalAppData%\BiliHelper\theme.txt`，下次启动自动恢复。
 
 ### 结构
 
@@ -344,4 +344,4 @@ cd BiliHelperWpf
 dotnet build
 ```
 
-首次使用：运行应用后打开标题栏 ⚙️ 设置中心，在「AI 大模型」面板填写 API Key / Base URL / 模型，点「测试连通性」验证并保存；若未登录 B 站，设置中心会首次自动弹出并定位到「账号」面板扫码登录。
+首次使用：运行应用后点击 URL 工具行的「⚙️ 配置」打开设置中心，在「AI 大模型」面板填写 API Key / Base URL / 模型，点「测试连通性」验证并保存；若未登录 B 站，设置中心会首次自动弹出并定位到「账号」面板扫码登录。
