@@ -55,5 +55,5 @@ No test project and no linter config exist — use `dotnet build` / `uv` for ver
 
 ## Ignored / unrelated
 - `notes/` contains personal OS/study notes — not part of the codebase. `_log/`, `history/`, `.env`, cookies are gitignored.
-- WPF 侧登录流程: `AuthService.cs` spawn 调 `auth.py`; **扫码登录已并入设置中心账号面板** `Settings/AccountPanel.xaml(.cs)`（内嵌二维码/状态/重新生成/退出, 轮询生命周期挂 Loaded/Unloaded, 复用 `MainViewModel.LoginAsync/DeleteCookiesAsync`）; 主界面 `MainWindow.xaml` cookie 按钮 🍪(有效)/⚠(无效, 点击打开设置中心账号面板) 由 `MainViewModel.CookieState` 驱动; 启动 `OnContentRendered` 探测, 无 cookie 首次自动弹设置中心.
+- WPF 侧登录流程: `AuthService.cs` spawn 调 `auth.py`; **扫码登录已并入设置中心账号面板** `Settings/AccountPanel.xaml(.cs)`（内嵌二维码/状态/重新生成/退出, 轮询生命周期挂 Loaded/Unloaded, 复用 `MainViewModel.LoginAsync/DeleteCookiesAsync`）; 主窗口标题栏**已无** cookie 按钮 (🍪/⚠ 随扫码登录并入设置中心一并移除, 登录态入口统一在设置中心账号面板); 启动 `OnContentRendered` 探测, 无 cookie 首次自动弹设置中心.
 - 注意: `.env` 仅因历史遗留被 gitignore, 现在没有任何代码读取它 (`AIClient.from_env` 只读环境变量). 本地残留的 `.env` 文件可安全删除; 若有人用 `uv run` 手动跑脚本, uv 会自动注入 `.env` 环境变量 (仅影响开发者手动执行, 不影响 WPF 直调 `.venv/python.exe` 的链路).
