@@ -22,8 +22,6 @@ public partial class MainWindow : Window
         DataContext = new MainViewModel();
         _vm = (MainViewModel)DataContext;
 
-        UpdateThemeIcon();
-
         // 设置任务栏图标
         Icon = new System.Windows.Media.Imaging.BitmapImage(
             new Uri("pack://application:,,,/Assets/logo.png"));
@@ -80,26 +78,16 @@ public partial class MainWindow : Window
                 });
             }
 
-            // cookie 状态变化 -> 更新图标
-            if (e.PropertyName == nameof(MainViewModel.CookieState))
-                Dispatcher.BeginInvoke(UpdateCookieIcon);
         };
     }
 
     protected override async void OnContentRendered(EventArgs e)
     {
         base.OnContentRendered(e);
-        // 启动时探测 cookie 状态；无 cookie 时首次自动弹扫码窗
+        // 启动时探测 cookie 状态；无 cookie 时首次自动弹设置中心的账号面板
         bool valid = await _vm.RefreshCookieStatusAsync();
-        UpdateCookieIcon();
         if (!valid)
-            OpenLoginWindow();
-    }
-
-    private void UpdateCookieIcon()
-    {
-        if (CookieIcon == null) return;
-        CookieIcon.Text = _vm.CookieState == Models.CookieState.Valid ? "🍪" : "⚠";
+            OpenSettingsWindow(0);
     }
 
     /// <summary>
@@ -171,35 +159,26 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// 切换主题（浅色/深色）并更新按钮图标。
-    /// </summary>
-    private void ThemeToggleButton_Click(object sender, RoutedEventArgs e)
-    {
-        ThemeManager.Toggle();
-        UpdateThemeIcon();
-    }
-
-    /// <summary>
-    /// 打开 AI 大模型设置窗。
+    /// 打开设置中心。
     /// </summary>
     private SettingsWindow? _settingsWindow;
 
     private void SettingsButton_Click(object sender, RoutedEventArgs e)
     {
+        OpenSettingsWindow();
+    }
+
+    private void OpenSettingsWindow(int panelIndex = 0)
+    {
         if (_settingsWindow != null && _settingsWindow.IsVisible)
         {
+            _settingsWindow.NavigateTo(panelIndex);
             _settingsWindow.Activate();
             return;
         }
-        _settingsWindow = new SettingsWindow { Owner = this };
+        _settingsWindow = new SettingsWindow(_vm, panelIndex) { Owner = this };
         _settingsWindow.Closed += (_, _) => _settingsWindow = null;
         _settingsWindow.Show();
-    }
-
-    private void UpdateThemeIcon()
-    {
-        if (ThemeToggleIcon != null)
-            ThemeToggleIcon.Text = ThemeManager.IsDark ? "🌙" : "☀️";
     }
 
     // ── Windows 11 DWM 原生圆角 ─────────────────────────────────
@@ -256,50 +235,6 @@ public partial class MainWindow : Window
     {
         if (new WindowInteropHelper(this).Handle != IntPtr.Zero)
             ApplyWindowCornerRoundness();
-    }
-
-    /// <summary>
-    /// 点击 cookie 状态按钮：有效时询问退出登录，无效/未登录时弹扫码窗。
-    /// </summary>
-    private async void CookieButton_Click(object sender, RoutedEventArgs e)
-    {
-        if (_vm.CookieState == Models.CookieState.Valid)
-        {
-            var confirm = MessageBox.Show(
-                "确定要退出 B 站登录并删除本地 cookie 吗？",
-                "退出登录",
-                MessageBoxButton.OKCancel,
-                MessageBoxImage.Question);
-            if (confirm != MessageBoxResult.OK)
-                return;
-
-            await _vm.DeleteCookiesAsync();
-            UpdateCookieIcon();
-        }
-        else
-        {
-            OpenLoginWindow();
-        }
-    }
-
-    private LoginWindow? _loginWindow;
-
-    private void OpenLoginWindow()
-    {
-        if (_loginWindow != null && _loginWindow.IsVisible)
-        {
-            _loginWindow.Activate();
-            return;
-        }
-        _loginWindow = new LoginWindow(_vm, this, () =>
-        {
-            Dispatcher.BeginInvoke(() =>
-            {
-                UpdateCookieIcon();
-            });
-        });
-        _loginWindow.Closed += (_, _) => _loginWindow = null;
-        _loginWindow.Show();
     }
 
 }

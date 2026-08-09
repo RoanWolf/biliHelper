@@ -211,8 +211,6 @@
                     <ColumnDefinition Width="46" />
                     <ColumnDefinition Width="46" />
                     <ColumnDefinition Width="46" />
-                    <ColumnDefinition Width="46" />
-                    <ColumnDefinition Width="46" />
                 </Grid.ColumnDefinitions>
 
                 <!-- 标题（拖动区域） -->
@@ -242,31 +240,8 @@
                 <Rectangle Grid.Column="1" Fill="Transparent"
                            shell:WindowChrome.IsHitTestVisibleInChrome="False" />
 
-                <!-- 设置 -->
-                <Button Grid.Column="2"
-                        Style="{StaticResource TitleBarButtonStyle}"
-                        x:Name="SettingsButton"
-                        Click="SettingsButton_Click"
-                        shell:WindowChrome.IsHitTestVisibleInChrome="True"
-                        ToolTip="设置">
-                    <TextBlock Text="⚙️"
-                               HorizontalAlignment="Center" VerticalAlignment="Center" />
-                </Button>
-
-                <!-- 主题切换 -->
-                <Button Grid.Column="3"
-                        Style="{StaticResource TitleBarButtonStyle}"
-                        x:Name="ThemeToggleButton"
-                        Click="ThemeToggleButton_Click"
-                        shell:WindowChrome.IsHitTestVisibleInChrome="True"
-                        ToolTip="切换主题"
-                        FontSize="14">
-                    <TextBlock x:Name="ThemeToggleIcon" Text="☀️"
-                               HorizontalAlignment="Center" VerticalAlignment="Center" />
-                </Button>
-
                 <!-- 最小化 -->
-                <Button Grid.Column="4"
+                <Button Grid.Column="2"
                         Style="{DynamicResource TitleBarButtonStyle}"
                         x:Name="MinimizeButton"
                         Click="MinimizeButton_Click"
@@ -279,7 +254,7 @@
                 </Button>
 
                 <!-- 最大化/还原 -->
-                <Button Grid.Column="5"
+                <Button Grid.Column="3"
                         Style="{DynamicResource TitleBarButtonStyle}"
                         x:Name="MaximizeButton"
                         Click="MaximizeButton_Click"
@@ -300,7 +275,7 @@
                 </Button>
 
                 <!-- 关闭 -->
-                <Button Grid.Column="6"
+                <Button Grid.Column="4"
                         Style="{DynamicResource CloseButtonStyle}"
                         x:Name="CloseButton"
                         Click="CloseButton_Click"
@@ -352,17 +327,15 @@
                             Height="38" Margin="8,0,0,0"
                             Padding="14,0"
                             FontSize="13" />
-                    <!-- B 站 cookie 状态按钮 -->
+                    <!-- 配置按钮 -->
                     <Button Grid.Column="3"
-                            x:Name="CookieButton"
-                            FontSize="16"
+                            Content="⚙️ 配置"
+                            x:Name="SettingsButton"
+                            Click="SettingsButton_Click"
                             Style="{DynamicResource SecondaryButtonStyle}"
                             Height="38" Margin="8,0,0,0"
-                            Padding="10,0"
-                            Click="CookieButton_Click"
-                            ToolTip="{Binding CookieTooltip}">
-                        <TextBlock x:Name="CookieIcon" Text="🍪" FontSize="16" />
-                    </Button>
+                            Padding="14,0"
+                            FontSize="13" />
                 </Grid>
                 <TextBlock Text="💡 支持 BV 号 / 完整 URL / 多P合集 / 自动识别字幕语言"
                            FontSize="11" Foreground="{DynamicResource TextMutedBrush}" Margin="0,4,0,0" />
