@@ -27,11 +27,9 @@ public class AuthService
     /// state: none / valid / invalid。
     /// </summary>
     public async Task<(string state, string message)> CheckAsync(
-        bool autoRefresh = false,
         CancellationToken ct = default)
     {
-        var args = autoRefresh ? "check --refresh" : "check";
-        var result = await RunSimpleAsync(args, ct);
+        var result = await RunSimpleAsync("check", ct);
         return (result.State ?? "invalid", result.Message ?? "");
     }
 

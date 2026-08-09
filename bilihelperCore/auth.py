@@ -1,24 +1,19 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-B 站 cookie 登录 / 续期 / 探测 —— 供 WPF 子进程调用。
+B 站 cookie 登录 / 探测 —— 供 WPF 子进程调用。
 =========================================================
 子命令（WPF 调用，stdout 输出 JSONL，每行一个 JSON 对象）：
-  auth.py generate [--out <png>]
-      -> {"type":"qr","url":"...","qr_key":"...","image":"<png>"}
+  auth.py generate
+      -> {"type":"qr","url":"...","qr_key":"...","image_base64":"..."}
   auth.py login
       轮询期间每 1.5s 发一次：
         {"type":"status","code":86101}   等待扫码
         {"type":"status","code":86090}   已扫码
       成功 -> {"type":"success","count":N,"refresh_token":"..."}
       失败 -> {"type":"error","message":"..."}
-  auth.py refresh
-      用 refresh_token 自动续期（before 先探测，需要才刷）
-      -> {"type":"ok","refreshed":bool}
-      -> {"type":"error","message":"..."}
   auth.py check
       -> {"type":"check","state":"valid|invalid|none","message":"..."}
-      (valid 时顺带尝试自动续期；续期成功输出 ok 事件)
   auth.py delete
       -> {"type":"ok","deleted":bool}
 
@@ -26,7 +21,7 @@ B 站 cookie 登录 / 续期 / 探测 —— 供 WPF 子进程调用。
   %LocalAppData%/BiliHelper/cookies.json   权威存储 {cookies, refresh_token, ...}
   %LocalAppData%/BiliHelper/cookies.txt    给 yt-dlp 用的 Netscape 格式
 
-依赖：requests, qrcode, cryptography（refresh 需 cryptography）
+依赖：requests, qrcode
 """
 
 from __future__ import annotations
@@ -44,15 +39,6 @@ from urllib.parse import parse_qs, urlsplit
 import qrcode
 import requests
 
-try:
-    from cryptography.hazmat.primitives import hashes, serialization
-    from cryptography.hazmat.primitives.asymmetric import padding
-
-    _HAS_CRYPTO = True
-except ImportError:  # pragma: no cover
-    _HAS_CRYPTO = False
-
-
 # ---- 目录 / 常量 ----------------------------------------------------
 APP_DIR = Path(os.environ.get("LOCALAPPDATA", Path.home())) / "BiliHelper"
 COOKIES_JSON = APP_DIR / "cookies.json"
@@ -63,11 +49,6 @@ QR_GENERATE_URL = "https://passport.bilibili.com/x/passport-login/web/qrcode/gen
 QR_POLL_URL = "https://passport.bilibili.com/x/passport-login/web/qrcode/poll"
 FINGER_URL = "https://api.bilibili.com/x/frontend/finger/spi"
 COOKIE_INFO_URL = "https://passport.bilibili.com/x/passport-login/web/cookie/info"
-COOKIE_REFRESH_URL = "https://passport.bilibili.com/x/passport-login/web/cookie/refresh"
-CONFIRM_REFRESH_URL = (
-    "https://passport.bilibili.com/x/passport-login/web/confirm/refresh"
-)
-CORRESPOND_URL_PREFIX = "https://www.bilibili.com/correspond/1/"
 
 USER_AGENT = (
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -78,16 +59,6 @@ POLL_INTERVAL = 1.5
 POLL_TIMEOUT = 180.0
 
 WAITING, SCANNED, SUCCESS, EXPIRED = 86101, 86090, 0, 86038
-
-# B 站登录页 RSA 公钥（PEM），用于刷新 cookie 的 correspondPath 加密
-BILIBILI_PUBLIC_KEY_PEM = (
-    "-----BEGIN PUBLIC KEY-----\n"
-    "MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDLgd2OAkcGVtoE3ThUREbio0Eg\n"
-    "Uc/prcajMKXvkCKFCWhJYJcLkcM2DKKcSeFpD/j6Boy538YXnR6VhcuUJOhH2x71\n"
-    "0U920q2kP+XmtW+PK1kT2uUo4F8d0h5g3A90JPAiOKOc9t2KZFKVW7N6WrHT0U+\n"
-    "WKSlqQIDAQI6yPJfzK9z0G0B5CvQ1HAU4i8urnO/5bFYGRFLPPWV4G8cNAYlwKc=\n"
-    "-----END PUBLIC KEY-----\n"
-)
 
 
 def _emit(data: dict) -> None:
@@ -320,97 +291,6 @@ def check_status(session: requests.Session, cookies: dict) -> dict:
         return {"state": "invalid", "message": f"探测失败: {e}"}
 
 
-def refresh_cookies(session: requests.Session, data: dict) -> dict | None:
-    if not _HAS_CRYPTO:
-        raise RuntimeError("缺少 cryptography 依赖，无法自动续期")
-    cookies = data.get("cookies", {})
-    refresh_token = data.get("refresh_token", "")
-    if not refresh_token:
-        raise RuntimeError("没有 refresh_token，无法自动续期")
-
-    timestamp = int(time.time() * 1000)
-    pub_key = serialization.load_pem_public_key(BILIBILI_PUBLIC_KEY_PEM.encode())
-    cipher = pub_key.encrypt(
-        f"refresh_{timestamp}".encode(),
-        padding.OAEP(
-            mgf=padding.MGF1(algorithm=hashes.SHA256()),
-            algorithm=hashes.SHA256(),
-            label=None,
-        ),
-    )
-    path = cipher.hex()
-
-    _log("获取 refresh_csrf (correspond)")
-    r = session.get(
-        CORRESPOND_URL_PREFIX + path,
-        headers={
-            "Cookie": _build_cookie_header(cookies),
-            "User-Agent": USER_AGENT,
-            "Accept": "text/html",
-            "Accept-Encoding": "identity",
-        },
-        timeout=10,
-    )
-    html = r.text
-    tag = '<div id="1-name">'
-    i = html.find(tag)
-    if i == -1:
-        raise RuntimeError("correspond 页未找到 refresh_csrf（可能已失效）")
-    i += len(tag)
-    j = html.find("</div>", i)
-    refresh_csrf = html[i:j] if j != -1 else ""
-
-    old_bili_jct = cookies.get("bili_jct", "")
-    _log("调用 cookie/refresh")
-    r = session.post(
-        COOKIE_REFRESH_URL,
-        data={
-            "csrf": old_bili_jct,
-            "refresh_csrf": refresh_csrf,
-            "source": "main_web",
-            "refresh_token": refresh_token,
-        },
-        headers={"Cookie": _build_cookie_header(cookies)},
-        timeout=10,
-    )
-    body = r.json()
-    if body.get("code") != 0:
-        raise RuntimeError(f"cookie/refresh 失败: {body.get('message')}")
-    new_cookies = _extract_from_set_cookie(r)
-    new_refresh_token = (body.get("data") or {}).get("refresh_token", "")
-    _log(
-        f"cookie/refresh code={body.get('code')} 新cookie={len(new_cookies)}个 新refresh_token={'有' if new_refresh_token else '无'}"
-    )
-    if not new_cookies:
-        raise RuntimeError("刷新响应没有新的 cookie")
-
-    new_bili_jct = new_cookies.get("bili_jct", "")
-    # confirm 必须用本次刷新下发的「新」refresh_token 确认，否则 B 站可能不认可本次刷新；
-    # 响应未下发新 token 时回退旧 token，避免把空串存进 cookies.json 导致下次无法续期。
-    confirm_token = new_refresh_token or refresh_token
-    _log("确认刷新 (confirm/refresh)")
-    try:
-        confirm_resp = session.post(
-            CONFIRM_REFRESH_URL,
-            data={"csrf": new_bili_jct, "refresh_token": confirm_token},
-            headers={"Cookie": _build_cookie_header(new_cookies)},
-            timeout=10,
-        )
-        confirm_body = confirm_resp.json()
-        if confirm_body.get("code") != 0:
-            _log(f"[WARN] confirm/refresh 确认失败: {confirm_body.get('message')}")
-    except Exception as e:  # noqa: BLE001
-        _log(f"[WARN] confirm/refresh 请求异常(不阻断): {e}")
-
-    return {
-        "cookies": new_cookies,
-        # 优先存新 token；响应没给新 token 时沿用旧的，绝不存空串
-        "refresh_token": new_refresh_token or refresh_token,
-        "timestamp": int(time.time() * 1000),
-        "source": "refresh",
-    }
-
-
 # ---- CLI ------------------------------------------------------------
 def cmd_generate(args) -> int:
     session = _session()
@@ -495,25 +375,6 @@ def cmd_user(args) -> int:
         return 1
 
 
-def cmd_refresh(args) -> int:
-    data = load_current()
-    if not data:
-        _log("refresh: 未找到已保存的 cookie")
-        _emit({"type": "error", "message": "未找到已保存的 cookie"})
-        return 1
-    try:
-        new = refresh_cookies(_session(), data)
-        if new:
-            save_current(new)
-            _log("refresh: 续期成功")
-            _emit({"type": "ok", "refreshed": True, "message": "已刷新"})
-    except Exception as e:  # noqa: BLE001
-        _log(f"refresh 失败: {e}")
-        _emit({"type": "error", "message": str(e)})
-        return 1
-    return 0
-
-
 def cmd_check(args) -> int:
     current = load_current()
     if not current:
@@ -529,22 +390,7 @@ def cmd_check(args) -> int:
     if stat["state"] == "valid":
         _emit({"type": "check", "state": "valid", "message": stat["message"]})
         return 0
-    # 无效 / 需刷新：尝试自动续期
-    if args.refresh:
-        try:
-            new = refresh_cookies(_session(), current)
-            if new:
-                save_current(new)
-                _log("check: 自动续期成功")
-                _emit({"type": "check", "state": "valid", "message": "已自动刷新"})
-                _emit({"type": "ok", "refreshed": True, "message": "已刷新"})
-                return 0
-        except Exception as e:  # noqa: BLE001
-            _log(f"check: 自动续期失败 {e}")
-            _emit(
-                {"type": "check", "state": "invalid", "message": f"自动刷新失败: {e}"}
-            )
-            return 0
+    # 不再自动续期（refresh 功能已移除）：无效 / 需刷新直接返回，用户重新扫码即可
     _emit({"type": "check", "state": stat["state"], "message": stat["message"]})
     return 0
 
@@ -566,11 +412,7 @@ def main(argv: list[str]) -> int:
     l = sub.add_parser("login", help="扫码登录")
     l.set_defaults(func=cmd_login)
 
-    sc = sub.add_parser("refresh", help="自动续期 cookie")
-    sc.set_defaults(func=cmd_refresh)
-
     c = sub.add_parser("check", help="探测 cookie 状态")
-    c.add_argument("--refresh", action="store_true", help="无效时自动尝试续期")
     c.set_defaults(func=cmd_check)
 
     d = sub.add_parser("delete", help="删除本地 cookie")

@@ -295,11 +295,11 @@ public class MainViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// 启动时探测 cookie 状态（顺带自动续期）。返回是否已登录。
+    /// 启动时探测 cookie 状态。返回是否已登录。
     /// </summary>
     public async Task<bool> RefreshCookieStatusAsync(CancellationToken ct = default)
     {
-        var (state, message) = await _authService.CheckAsync(autoRefresh: true, ct);
+        var (state, message) = await _authService.CheckAsync(ct);
         ApplyCookieState(state, message);
         return CookieState == CookieState.Valid;
     }
@@ -335,7 +335,7 @@ public class MainViewModel : ViewModelBase
 
     private async Task RefreshCookieStatusAsync()
     {
-        var (state, message) = await _authService.CheckAsync(autoRefresh: false);
+        var (state, message) = await _authService.CheckAsync();
         ApplyCookieState(state, message);
     }
 

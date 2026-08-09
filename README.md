@@ -11,7 +11,7 @@ biliHelper/
 ├── BiliHelperCore/                ← Python 后端（纯数据管道）
 │   ├── main.py                    CLI 入口（字幕抓取）
 │   ├── bili_helper.py             字幕提取核心逻辑（yt-dlp + SRT 解析）
-│   ├── auth.py                    B 站扫码登录 / 续期 / 探测 / 用户信息（供 WPF 子进程调用，二维码走 base64 不落盘、指纹持久化、cookies 原子写、confirm/refresh 用新 token）
+│   ├── auth.py                    B 站扫码登录 / 探测 / 用户信息（供 WPF 子进程调用，二维码走 base64 不落盘、指纹持久化、cookies 原子写）
 │   ├── analyze_sub.py             字幕分析工具
 │   ├── AiHelper/                   AI 模块（DeepSeek）
 │   │   ├── reading.py             AIClient 封装 + .env 加载
@@ -193,7 +193,7 @@ BiliHelperWpf/history/
 ### 调用链路（扫码登录）
 
 ```
-WPF 启动 → OnContentRendered → auth.py check --refresh   ← 自动探测 + 续期
+WPF 启动 → OnContentRendered → auth.py check   ← 自动探测
                                                   └─ 无 cookie → 自动弹设置中心账号面板
     │
     ▼
@@ -236,7 +236,7 @@ AccountPanel.LoadUserInfoAsync()   （已登录时展示欢迎卡片）
 ### 已知注意事项
 
 - **B 站对高频连续扫码有风控**：短时间连续 generate/扫码时，新 key 可能不被确认（一直 86101）。单次等待 + 扫码即可正常通过，属 B 站侧限流而非代码缺陷。
-- cookie 约 1 月过期，`auth.py check --refresh` 用 `refresh_token` 自动续期（WPF 启动时触发）；确认刷新（`confirm/refresh`）使用**新**下发的 refresh_token（响应未给时回退旧的），`cookies.json/.txt` 均为原子写入，进程被杀也不留半截文件。
+- cookie 约 1 月过期，**无自动续期**（refresh 功能已移除：原 RSA 公钥无效、续期从未成功，属不可用功能，已删除 `refresh` / `check --refresh`）——过期后重新扫码即可；`cookies.json/.txt` 均为原子写入，进程被杀也不留半截文件。
 
 ---
 
@@ -321,7 +321,7 @@ WPF 设置中心（⚙️ `SettingsWindow`）是唯一的配置入口：账号�
 - `_log/BiliHelperWpf_Log.txt`，每次启动覆盖，记录完整数据流：
   - 字幕抓取：启动、meta、每分P、完成
   - AI 润色：开始、子进程启动、stdout/stderr、完成回调、read.json 保存、取消/异常
-  - B 站登录：check/refresh、扫码轮询状态、设备指纹、结果
+  - B 站登录：check 探测、扫码轮询状态、设备指纹、结果
 - 适合排查问题时开启，测试完成后可移除细粒度日志
 
 ---
@@ -335,7 +335,6 @@ WPF 设置中心（⚙️ `SettingsWindow`）是唯一的配置入口：账号�
 | 字幕下载 | yt-dlp | ≥ 2024.1 |
 | AI 调用 | openai (DeepSeek 兼容接口) | ≥ 2.53.0 |
 | B 站登录 | requests + qrcode + pillow | — |
-| 登录续期 | cryptography | — |
 | 桌面框架 | .NET WPF | net10.0-windows |
 | 核心依赖 | 零 NuGet 包 | 纯 .NET 原生 |
 

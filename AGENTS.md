@@ -4,7 +4,7 @@ Bilibili subtitle extraction + desktop viewer + AI polish. **Python backend is a
 
 ## Layout
 - `BiliHelperCore/` — Python backend (`uv` project, requires-python >=3.13). No framework.
-  - `main.py` (CLI, --stream JSONL), `bili_helper.py` (yt-dlp + SRT), `analyze_sub.py` (**standalone diagnostic tool, not part of the WPF pipeline**), `auth.py` (B站扫码登录/续期/探测, stdout JSONL), `AiHelper/` (`ai_read.py` per-part AI polish; `reading.py` = AIClient reading env vars)
+  - `main.py` (CLI, --stream JSONL), `bili_helper.py` (yt-dlp + SRT), `analyze_sub.py` (**standalone diagnostic tool, not part of the WPF pipeline**), `auth.py` (B站扫码登录/探测/用户信息, stdout JSONL), `AiHelper/` (`ai_read.py` per-part AI polish; `reading.py` = AIClient reading env vars)
 - `BiliHelperWpf/` — .NET WPF, `net10.0-windows`, **zero NuGet packages** (pure native). `Services/` spawn Python and read pipes; `ViewModels/MainViewModel.cs` is the state/concurrency hub.
   - `Themes/` (`Light.xaml`, `Dark.xaml` = 34 same-key brushes, `ScrollBar.xaml`), `ThemeManager.cs` (runtime swap + persistence), `App.xaml.cs` loads persisted theme on startup.
   - `SettingsWindow.xaml(.cs)` (**设置中心**: 固定 880×620 不可拉伸 (`ResizeMode=NoResize`), 圆角 10 + `ButtonBorderBrush` 外圈边框与主窗口区分; 标题栏 32px / 13px 字号 / 左边距 10, 无 logo、无 "BiliHelper" 文字, 与 `MainWindow` 统一; **RadioButton 分组导航** — 服务(获取cookie/AI模型) / 个性化(外观), 主色药丸选中态, 无 icon) + `Settings/` (`SettingsStyles.xaml` 共享样式: `FluentPageTitleStyle` 面板大标题统一 20px / `FluentGroupTitleStyle` 主色竖线分组头 / 卡片 / 按钮 / 输入框 / 导航药丸 / 主题选择卡; `AccountPanel` 账号+扫码登录, `AiModelPanel` AI 大模型连接 (测试/保存按钮在标题行右上角, 测试结果内联卡片), `AppearancePanel` 主题左右并排 + 迷你预览) + `Services/AiSettingsStore.cs` (持久化到 `%LocalAppData%\BiliHelper\ai_settings.json`) + `Models/AiSettings.cs`.
@@ -32,7 +32,7 @@ No test project and no linter config exist — use `dotnet build` / `uv` for ver
 - 二维码: 不再落盘 `qr_login.png` — `auth.py` 内存生成 PNG → base64 (`image_base64` 字段) → stdout, WPF 解码显示. 规避多进程并发写同一图片.
 - 登录并发: `AccountPanel` 用 `SemaphoreSlim _loginGate` + `_runId` 互斥串行 —「重新生成」先 `_cts.Cancel()` 并 **await 旧任务彻底结束 (含子进程 kill) 再启动新的**, 保证同一时刻只有一个 auth.py 进程 (杜绝并发写 cookies).
 - 二维码过期: `qr_poll` 收到 86038 立即抛错, 不再空等 180s 超时.
-- B站续期逻辑在 `auth.py` 内（`auth.py refresh` / `auth.py check --refresh`），无需独立脚本；cookie 约 1 月过期，WPF 启动时自动续期. **`confirm/refresh` 必须用本次下发的新 refresh_token 确认** (响应未给时回退旧的, 绝不存空串) — 曾用旧 token 导致刷新不被 B 站认可.
+- **无自动续期** — refresh 功能已整体移除（`auth.py refresh` 子命令、`check --refresh` 参数、`refresh_cookies`、RSA 公钥相关全部删除）。原因：原 `BILIBILI_PUBLIC_KEY_PEM` 是无效假公钥（`load_pem_public_key` 直接报 Invalid padding），续期从开发之初就从未成功过。cookie 约 1 月过期，过期后用户重新扫码即可（与之前实际行为一致）。`refresh_token` 仍随登录保存于 `cookies.json`（无害保留，仅供未来可能的续期实现）。
 - 用户信息: `auth.py user` → GET `https://api.bilibili.com/x/web-interface/nav` → `{uname, face, mid}`. WPF `AuthService.GetUserAsync()` 读取. 仅用于展示欢迎卡片, **不持久化** (每次面板加载实时查). 注意: B 站认为这类接口为"非公开", 已因此关停知名文档仓库 — 仅自用, 勿整理传播.
 - AI 设置: WPF 设置窗(⚙️) 是唯一入口, 由主窗口 URL 工具行「⚙️ 配置」按钮 (`MainWindow.xaml` `SettingsButton_Click` → `OpenSettingsWindow`) 打开 — 标题栏没有设置按钮. 写入 `%LocalAppData%\BiliHelper\ai_settings.json` (明文, 与 cookie 同目录). `AiReadService.ApplySettings` 把非空字段注入子进程环境变量 `DEEPSEEK_API_KEY/BASE_URL/MODEL`; 空字段不注入, Python 端 (`AIClient.from_env` 读 os.environ) 回退默认值, API Key 为空则报错. **没有 .env 加载逻辑** (`load_env_file` 已删除). BaseUrl 不要以 `/chat/completions` 结尾 (SDK 自动追加); 模型名不要带 provider 前缀 (如 `opencode-go/`).
 - Persistence (WPF only, no DB): `BiliHelperWpf/history/YYYYMMDD/BVxxxx/raw.json` (full video) and `read.json` (`parts[]`, incremental per-part, lock-protected concurrent writes).
