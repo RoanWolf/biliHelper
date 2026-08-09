@@ -51,6 +51,10 @@ No test project and no linter config exist — use `dotnet build` / `uv` for ver
 - Cancellation + per-part independent `CancellationTokenSource` → concurrent polish of multiple parts.
 - Connectivity test: WPF 设置窗「测试连通性」→ `AiReadService.TestConnectivityAsync` → `ai_read.py --test` → `AIClient.test_connectivity()`. 失败时脚本 stdout 输出 `{"type":"test","ok":false,"message":"分类原因"}` **且退出码为 1**，C# 侧无论退出码都先解析该 JSON 行拿到分类信息；无 JSON 时才回退 stderr 的 `[ERROR]`。
 
+## Performance / memory (audited, no action needed)
+- **No OOM / leak risk** — audited 2026-08: child processes all use `using var` + `KillProcess(entireProcessTree)`, no Python→Python recursion (only bili_helper.py spawns yt-dlp, single level + timeout); event subscriptions are paired (AccountPanel Loaded/Unloaded); `_partTabMemory` / `_aiReadCtsMap` / `_aiReadProgress` all have `Clear()` / `finally Remove()`; stderr `Task.Run` loops break on process exit.
+- **CTS not disposed is a known non-issue** — `CancellationTokenSource` never `.Dispose()`d in `MainViewModel` (`_cts` re-created per fetch, `_aiReadCtsMap` Remove without dispose). Deliberately kept: scale is bounded (~300 parts/video → hundreds of KB max), GC finalizer reclaims eventually, fixing concurrent code risks more than it saves. Do NOT "fix" this casually.
+
 ## Theming contracts (do not break)
 - `Light.xaml` / `Dark.xaml` must define **the same brush keys** (34 each) — swapping the dictionary refreshes all `DynamicResource`. `ThemeManager` locates the theme dictionary by regex `Light\.xaml$|Dark\.xaml$` (never the shared `ScrollBar.xaml`).
 - MainWindow colors must use **`DynamicResource`** so they follow runtime theme swaps.
