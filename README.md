@@ -51,10 +51,14 @@ biliHelper/
 │   │   ├── Dark.xaml              深色主题（与 Light 同 key）
 │   │   └── ScrollBar.xaml         通用细滚动条（颜色随主题）
 │   ├── ThemeManager.cs             主题切换 / 持久化（%LocalAppData%\BiliHelper\theme.txt）
-│   ├── LoginWindow.xaml(.cs)       独立的 B 站扫码登录窗
-│   ├── SettingsWindow.xaml(.cs)    独立设置窗（AI 大模型连接，标题栏 ⚙️）
+│   ├── SettingsWindow.xaml(.cs)    设置中心（分组导航：服务/个性化，RadioButton 主色药丸选中态；固定大小、圆角 + 外圈边框与主窗口区分）
+│   ├── Settings/
+│   │   ├── SettingsStyles.xaml     共享样式（页面标题/分组标题/卡片/按钮/输入框/导航药丸/主题选择卡，FontSize 由顶部统一控制）
+│   │   ├── AccountPanel.xaml(.cs)  账号面板：内嵌扫码登录 + 退出
+│   │   ├── AiModelPanel.xaml(.cs)  AI 大模型连接面板（API Key / Base URL / 模型，测试/保存按钮在标题行右上角，测试结果内联卡片）
+│   │   └── AppearancePanel.xaml(.cs) 主题选择面板（左右并排 + 迷你预览 + 右上角单选圈）
 │   ├── MainWindow.xaml             主界面（含 🍪/⚠ cookie 按钮，颜色走 DynamicResource）
-│   ├── MainWindow.xaml.cs          窗口隐藏（含 DWM 圆角、主题切换、登录窗开关）
+│   ├── MainWindow.xaml.cs          窗口隐藏（含 DWM 圆角、主题切换、设置中心开关）
 │   ├── WpfHelper.cs                可视化树工具方法
 │   └── history/                    本地历史记录（用户数据，gitignore）
 │
@@ -190,7 +194,10 @@ BiliHelperWpf/history/
 
 ```
 WPF 启动 → OnContentRendered → auth.py check --refresh   ← 自动探测 + 续期
-                                                 └─ 无 cookie → 自动弹扫码窗
+                                                  └─ 无 cookie → 自动弹设置中心账号面板
+    │
+    ▼
+AccountPanel.StartLoginAsync()   （内嵌于设置中心，轮询挂 Loaded/Unloaded）
     │
     ▼
 MainViewModel.LoginAsync()
@@ -207,14 +214,14 @@ AuthService.LoginAsync(onQr, onStatus, onError, ...)
     │   │         (SESSDATA/bili_jct/DedeUserID...) → 写 cookies.json/.txt
     │   │   完成 → stdout: {type:qr/status/success/error}  JSONL
     │   ▼
-  读 stdout → LoginWindow 更新二维码 / 状态文本 / 成功后关窗
+  读 stdout → AccountPanel 更新二维码 / 状态文本 / 成功后刷新 cookie 状态
 ```
 
 ### 交互细节
 
-- 主界面标题栏 cookie 按钮：**🍪**(有效) / **⚠**(无效或未登录，点击弹扫码窗)
+- 主界面标题栏 cookie 按钮：**🍪**(有效) / **⚠**(无效或未登录，点击打开设置中心账号面板)
 - 点 🍪 → 「退出登录」确认 → 删除本地 cookie，状态置为未登录
-- 登录窗「重新生成」会取消上一轮轮询并杀旧子进程，保证**同一时刻只有一个轮询存活**（避免多进程竞争同一 `qr_login.png` 导致显示与轮询 key 不一致）
+- 账号面板「重新生成」会取消上一轮轮询并杀旧子进程，保证**同一时刻只有一个轮询存活**（避免多进程竞争同一 `qr_login.png` 导致显示与轮询 key 不一致）
 
 ### 已知注意事项
 
@@ -227,7 +234,7 @@ AuthService.LoginAsync(onQr, onStatus, onError, ...)
 
 ### 配置
 
-唯一入口是 **WPF 设置窗**（标题栏 ⚙️，`SettingsWindow`）：填 API Key / Base URL / 模型，点「测试连通性」验证后保存。持久化到 `%LocalAppData%\BiliHelper\ai_settings.json`（明文，与 cookie 同一目录同一安全级别）。
+唯一入口是 **WPF 设置中心**（标题栏 ⚙️，`SettingsWindow` → `Settings/AiModelPanel`）：填 API Key / Base URL / 模型，点「测试连通性」验证后保存。持久化到 `%LocalAppData%\BiliHelper\ai_settings.json`（明文，与 cookie 同一目录同一安全级别）。
 
 **注入机制**：WPF 启动 Python 子进程时，把设置窗中**非空**的字段通过环境变量 `DEEPSEEK_API_KEY` / `DEEPSEEK_BASE_URL` / `DEEPSEEK_MODEL` 注入；空字段不注入，Python 端回退到默认值（BaseUrl 默认 `https://api.deepseek.com`，模型默认 `deepseek-v4-flash`）。API Key 为空则明确报错并引导去设置窗填写。
 
@@ -270,9 +277,41 @@ WPF 端支持浅色 / 深色两种主题，运行时可切换（标题栏 ☀️
 - `ScrollBar.xaml` 中被引用的 `x:Key` 样式必须声明在隐式样式**之前**（`StaticResource` 只能向前解析）。
 
 ---
-- 每次启动覆盖，记录完整数据流：
+
+## 设置中心
+
+WPF 设置中心（⚙️ `SettingsWindow`）是唯一的配置入口：账号扫码登录、AI 大模型连接、外观主题。Fluent 风格，**固定大小**（880×620，`ResizeMode=NoResize`）、圆角 + 外圈边框，与主窗口在视觉上区分。
+
+### 布局
+
+- 标题栏与主窗口统一为 **32px** 高，只保留「设置」标题 + 关闭按钮（无 logo / 应用名），整窗不可拉伸。
+- 左侧**分组导航**（`RadioButton` 主色药丸选中态，无 icon）：
+  - **服务**：获取cookie、AI模型
+  - **个性化**：外观
+- 右侧内容区承载面板；`Settings/SettingsStyles.xaml` 共享样式（页面标题 `FluentPageTitleStyle`、分组标题 `FluentGroupTitleStyle`、卡片/按钮/输入框/导航药丸/主题卡），面板大标题字号统一 20px。
+
+### 面板
+
+| 面板 | 文件 | 说明 |
+|------|------|------|
+| 账号 | `Settings/AccountPanel.xaml(.cs)` | 内嵌扫码登录（二维码/状态/重新生成/退出），轮询挂 Loaded/Unloaded；复用 `MainViewModel.LoginAsync/DeleteCookiesAsync` |
+| AI 模型 | `Settings/AiModelPanel.xaml(.cs)` | API Key / Base URL / 模型；「测试连通性」「保存」在标题行右上角，测试结果内联卡片显示在连接配置卡下方 |
+| 外观 | `Settings/AppearancePanel.xaml(.cs)` | 浅色/深色**左右并排**主题卡，各带 72px 迷你预览，单选圈悬浮右上角 |
+
+### 交互细节
+
+- 无 cookie 时启动 `OnContentRendered` 自动弹出设置中心并定位到账号面板。
+- 主窗口「设置」按钮复用同一窗口实例：已打开则 `NavigateTo(index)` + Activate，避免重复窗口。
+- **导航切换用 RadioButton + Tag 下标**：`NavigateTo` 直接赋值 `ContentHost.Content`（默认选中项不触发 `Checked` 事件），`Nav_Checked` 对 `_panels` 做空值防御（XAML 加载期事件早于字段初始化）。
+
+---
+
+## 日志
+
+- `_log/BiliHelperWpf_Log.txt`，每次启动覆盖，记录完整数据流：
   - 字幕抓取：启动、meta、每分P、完成
   - AI 润色：开始、子进程启动、stdout/stderr、完成回调、read.json 保存、取消/异常
+  - B 站登录：check/refresh、扫码轮询状态、设备指纹、结果
 - 适合排查问题时开启，测试完成后可移除细粒度日志
 
 ---
@@ -304,4 +343,4 @@ cd BiliHelperWpf
 dotnet build
 ```
 
-首次使用：运行应用后在标题栏 ⚙️ 设置窗填写 AI API Key / Base URL / 模型，点「测试连通性」验证并保存。
+首次使用：运行应用后打开标题栏 ⚙️ 设置中心，在「AI 大模型」面板填写 API Key / Base URL / 模型，点「测试连通性」验证并保存；若未登录 B 站，设置中心会首次自动弹出并定位到「账号」面板扫码登录。

@@ -127,7 +127,7 @@ public class AuthService
 
     private ProcessStartInfo BuildPsi(string args)
     {
-        return new ProcessStartInfo
+        var psi = new ProcessStartInfo
         {
             FileName = PythonExe,
             Arguments = $"\"{AuthScript}\" {args}",
@@ -139,6 +139,10 @@ public class AuthService
             StandardErrorEncoding = Encoding.UTF8,
             CreateNoWindow = true,
         };
+        // 强制 Python 子进程 stdout/stderr 均以 UTF-8 输出，
+        // 否则在中文 Windows 上会退化为 GBK，导致 C# 侧按 UTF-8 解码出乱码。
+        psi.EnvironmentVariables["PYTHONIOENCODING"] = "utf-8";
+        return psi;
     }
 
     private async Task<AuthEvent> RunSimpleAsync(string args, CancellationToken ct)

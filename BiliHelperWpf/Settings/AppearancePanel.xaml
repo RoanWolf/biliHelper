@@ -1,0 +1,197 @@
+<UserControl x:Class="BiliHelperWpf.Settings.AppearancePanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="Transparent">
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="SettingsStyles.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </UserControl.Resources>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                  HorizontalScrollBarVisibility="Disabled"
+                  Padding="0">
+        <StackPanel MaxWidth="620" HorizontalAlignment="Left">
+            <!-- ═══ 页面标题 ═══ -->
+            <TextBlock Text="外观"
+                       Style="{StaticResource FluentPageTitleStyle}" />
+            <TextBlock Text="选择应用外观，更改会立即生效"
+                       Style="{StaticResource FluentPageSubtitleStyle}" />
+            <Border Style="{StaticResource FluentSectionDividerStyle}" />
+
+            <!-- ═══ 主题选择：左右并排 ═══ -->
+            <Border Style="{StaticResource FluentCardStyle}" Padding="28,24">
+                <StackPanel>
+                    <ContentControl Content="主题"
+                                    FontSize="13" FontWeight="SemiBold"
+                                    Style="{StaticResource FluentGroupTitleStyle}" />
+
+                    <!-- 两个主题卡并排，选中圈悬浮右上角（模板处理） -->
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="12" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+
+                        <!-- ═══ 浅色 ═══ -->
+                        <RadioButton Grid.Column="0"
+                                     x:Name="LightRadio"
+                                     GroupName="Theme"
+                                     Style="{StaticResource FluentThemeCardStyle}"
+                                     Click="ThemeRadio_Click">
+                            <StackPanel>
+                                <!-- 标题行（右侧预留单选圈空间，避免重叠） -->
+                                <StackPanel Orientation="Horizontal" Margin="0,0,30,0">
+                                    <TextBlock Text="☀️" FontSize="18" VerticalAlignment="Center"
+                                               Margin="0,0,10,0" />
+                                    <StackPanel>
+                                        <TextBlock Text="浅色" FontSize="14" FontWeight="SemiBold" />
+                                        <TextBlock Text="明亮通透的白天配色"
+                                                   FontSize="12"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   Margin="0,2,0,0" />
+                                    </StackPanel>
+                                </StackPanel>
+
+                                <!-- 浅色迷你预览 -->
+                                <Border Margin="0,16,0,0"
+                                        Height="72"
+                                        CornerRadius="8"
+                                        Padding="12,9"
+                                        Background="#F7F8FA"
+                                        BorderBrush="#E5E6EB"
+                                        BorderThickness="1"
+                                        SnapsToDevicePixels="True">
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="*" />
+                                        </Grid.RowDefinitions>
+
+                                        <!-- 顶栏：主色圆点 + 标题条 -->
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <Border Width="8" Height="8" CornerRadius="4"
+                                                    Background="#FB7299"
+                                                    VerticalAlignment="Center" />
+                                            <Border Grid.Column="1"
+                                                    Width="90" Height="6" CornerRadius="3"
+                                                    Background="#1F2329" Opacity="0.18"
+                                                    HorizontalAlignment="Left"
+                                                    VerticalAlignment="Center"
+                                                    Margin="8,0,0,0" />
+                                        </Grid>
+
+                                        <!-- 表面卡片：文字条 + 主色按钮 -->
+                                        <Grid Grid.Row="1" Margin="0,8,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel VerticalAlignment="Center">
+                                                <Border Width="110" Height="6" CornerRadius="3"
+                                                        Background="#1F2329" Opacity="0.85"
+                                                        HorizontalAlignment="Left" />
+                                                <Border Width="72" Height="6" CornerRadius="3"
+                                                        Background="#4E5969" Opacity="0.35"
+                                                        HorizontalAlignment="Left"
+                                                        Margin="0,6,0,0" />
+                                            </StackPanel>
+                                            <Border Grid.Column="1"
+                                                    Width="56" Height="20" CornerRadius="10"
+                                                    Background="#FB7299"
+                                                    VerticalAlignment="Center" />
+                                        </Grid>
+                                    </Grid>
+                                </Border>
+                            </StackPanel>
+                        </RadioButton>
+
+                        <!-- ═══ 深色 ═══ -->
+                        <RadioButton Grid.Column="2"
+                                     x:Name="DarkRadio"
+                                     GroupName="Theme"
+                                     Style="{StaticResource FluentThemeCardStyle}"
+                                     Click="ThemeRadio_Click">
+                            <StackPanel>
+                                <!-- 标题行（右侧预留单选圈空间，避免重叠） -->
+                                <StackPanel Orientation="Horizontal" Margin="0,0,30,0">
+                                    <TextBlock Text="🌙" FontSize="18" VerticalAlignment="Center"
+                                               Margin="0,0,10,0" />
+                                    <StackPanel>
+                                        <TextBlock Text="深色" FontSize="14" FontWeight="SemiBold" />
+                                        <TextBlock Text="夜间使用更护眼的暗色配色"
+                                                   FontSize="12"
+                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   Margin="0,2,0,0" />
+                                    </StackPanel>
+                                </StackPanel>
+
+                                <!-- 深色迷你预览 -->
+                                <Border Margin="0,16,0,0"
+                                        Height="72"
+                                        CornerRadius="8"
+                                        Padding="12,9"
+                                        Background="#17181C"
+                                        BorderBrush="#36393F"
+                                        BorderThickness="1"
+                                        SnapsToDevicePixels="True">
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="*" />
+                                        </Grid.RowDefinitions>
+
+                                        <!-- 顶栏：主色圆点 + 标题条 -->
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <Border Width="8" Height="8" CornerRadius="4"
+                                                    Background="#E75E86"
+                                                    VerticalAlignment="Center" />
+                                            <Border Grid.Column="1"
+                                                    Width="90" Height="6" CornerRadius="3"
+                                                    Background="#E8EAED" Opacity="0.18"
+                                                    HorizontalAlignment="Left"
+                                                    VerticalAlignment="Center"
+                                                    Margin="8,0,0,0" />
+                                        </Grid>
+
+                                        <!-- 表面卡片：文字条 + 主色按钮 -->
+                                        <Grid Grid.Row="1" Margin="0,8,0,0">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel VerticalAlignment="Center">
+                                                <Border Width="110" Height="6" CornerRadius="3"
+                                                        Background="#E8EAED" Opacity="0.85"
+                                                        HorizontalAlignment="Left" />
+                                                <Border Width="72" Height="6" CornerRadius="3"
+                                                        Background="#B3B8C0" Opacity="0.35"
+                                                        HorizontalAlignment="Left"
+                                                        Margin="0,6,0,0" />
+                                            </StackPanel>
+                                            <Border Grid.Column="1"
+                                                    Width="56" Height="20" CornerRadius="10"
+                                                    Background="#E75E86"
+                                                    VerticalAlignment="Center" />
+                                        </Grid>
+                                    </Grid>
+                                </Border>
+                            </StackPanel>
+                        </RadioButton>
+                    </Grid>
+                </StackPanel>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

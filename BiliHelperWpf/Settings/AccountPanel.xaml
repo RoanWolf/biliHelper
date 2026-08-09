@@ -1,0 +1,105 @@
+<UserControl x:Class="BiliHelperWpf.Settings.AccountPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             Background="Transparent">
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="SettingsStyles.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </UserControl.Resources>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                  HorizontalScrollBarVisibility="Disabled"
+                  Padding="0">
+        <StackPanel MaxWidth="520" HorizontalAlignment="Left">
+            <TextBlock Text="账号"
+                       Style="{StaticResource FluentPageTitleStyle}" />
+            <TextBlock Text="B 站登录态用于拉取需要会员 / 登录的视频字幕"
+                       Style="{StaticResource FluentPageSubtitleStyle}" />
+            <Border Style="{StaticResource FluentSectionDividerStyle}" />
+
+            <!-- ═══ 已登录 ═══ -->
+            <StackPanel x:Name="LoggedInPanel" Visibility="Collapsed">
+                <Border Style="{StaticResource FluentCardStyle}" Padding="32,30">
+                    <StackPanel HorizontalAlignment="Center">
+                        <Border Width="56" Height="56"
+                                CornerRadius="28"
+                                Background="{DynamicResource SurfaceSelectedBrush}"
+                                HorizontalAlignment="Center">
+                            <TextBlock Text="✓"
+                                       FontSize="26"
+                                       Foreground="{DynamicResource PrimaryBrush}"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center" />
+                        </Border>
+                        <TextBlock Text="已登录 B 站"
+                                   FontSize="16" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TextPrimaryBrush}"
+                                   HorizontalAlignment="Center"
+                                   Margin="0,16,0,0" />
+                        <TextBlock x:Name="StatusInfo"
+                                   FontSize="13"
+                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                   TextAlignment="Center"
+                                   TextWrapping="Wrap"
+                                   Margin="0,6,0,0" />
+                        <Button Content="退出登录"
+                                Style="{StaticResource FluentButtonStyle}"
+                                FontSize="13"
+                                HorizontalAlignment="Center"
+                                Margin="0,22,0,0"
+                                Click="LogoutButton_Click" />
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+
+            <!-- ═══ 未登录：扫码 ═══ -->
+            <StackPanel x:Name="LoginPanel" Visibility="Collapsed">
+                <Border Style="{StaticResource FluentCardStyle}" Padding="36,32">
+                    <StackPanel HorizontalAlignment="Center">
+                        <TextBlock Text="扫码登录 B 站"
+                                   FontSize="16" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource TextPrimaryBrush}"
+                                   HorizontalAlignment="Center" />
+                        <TextBlock Text="使用 B 站 App 扫描二维码，登录后自动保存"
+                                   FontSize="13"
+                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                   HorizontalAlignment="Center"
+                                   Margin="0,6,0,20" />
+
+                        <Border Background="{DynamicResource InputBgBrush}"
+                                BorderBrush="{DynamicResource BorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="8"
+                                Width="200" Height="200"
+                                HorizontalAlignment="Center"
+                                Padding="6">
+                            <Image x:Name="QrImage"
+                                   Stretch="Uniform"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   RenderOptions.BitmapScalingMode="HighQuality" />
+                        </Border>
+
+                        <TextBlock x:Name="StatusText"
+                                   Text="正在生成二维码..."
+                                   FontSize="13"
+                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                   HorizontalAlignment="Center"
+                                   Margin="0,18,0,20" />
+
+                        <Button Content="重新生成"
+                                x:Name="RegenButton"
+                                Style="{StaticResource FluentButtonStyle}"
+                                FontSize="13"
+                                HorizontalAlignment="Center"
+                                IsEnabled="False"
+                                Click="RegenButton_Click" />
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>
