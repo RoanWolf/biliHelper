@@ -36,7 +36,7 @@ public class AuthService
     }
 
     /// <summary>
-    /// 扫码登录。onQr 拿到二维码图片路径，onStatus 拿到轮询状态码，成功后 onSuccess。
+    /// 扫码登录。onQr 拿到二维码 PNG 的 base64，onStatus 拿到轮询状态码，成功后 onSuccess。
     /// </summary>
     public async Task<bool> LoginAsync(
         Action<string> onQr,
@@ -81,7 +81,9 @@ public class AuthService
                 switch (type)
                 {
                     case "qr":
-                        onQr?.Invoke(root.GetProperty("image").GetString() ?? "");
+                        // image_base64：二维码 PNG 的 base64（不再落盘 qr_login.png）。
+                        // WPF 与 auth.py 同仓库同版本发布，无需兼容旧 image 路径字段。
+                        onQr?.Invoke(root.GetProperty("image_base64").GetString() ?? "");
                         break;
                     case "status":
                         onStatus?.Invoke(root.GetProperty("code").GetInt32());
@@ -124,6 +126,12 @@ public class AuthService
         var result = await RunSimpleAsync("delete", ct);
         return result.Deleted;
     }
+
+    /// <summary>
+    /// 获取当前登录用户信息（昵称/头像/UID），供账号面板展示欢迎卡片。
+    /// </summary>
+    public async Task<AuthEvent> GetUserAsync(CancellationToken ct = default)
+        => await RunSimpleAsync("user", ct);
 
     private ProcessStartInfo BuildPsi(string args)
     {
@@ -205,7 +213,10 @@ public class AuthService
         using var doc = JsonDocument.Parse(line);
         var root = doc.RootElement;
         var e = new AuthEvent { Type = root.GetProperty("type").GetString() ?? "" };
-        if (root.TryGetProperty("image", out var img)) e.Image = img.GetString();
+
+        if (root.TryGetProperty("uname", out var uname)) e.Uname = uname.GetString();
+        if (root.TryGetProperty("face", out var face)) e.Face = face.GetString();
+        if (root.TryGetProperty("mid", out var mid)) e.Mid = mid.GetInt64();
         if (root.TryGetProperty("url", out var url)) e.Url = url.GetString();
         if (root.TryGetProperty("state", out var st)) e.State = st.GetString();
         if (root.TryGetProperty("message", out var msg)) e.Message = msg.GetString();

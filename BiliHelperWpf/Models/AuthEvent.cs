@@ -25,10 +25,17 @@ public class AuthEvent
     // ── qr ──
     public string? Url { get; set; }
     public string? QrKey { get; set; }
-    public string? Image { get; set; }
+
+    /// <summary>二维码 PNG 的 base64（不再落盘 qr_login.png，避免并发写坏）。</summary>
+    public string? ImageBase64 { get; set; }
 
     // ── status ──
     public int Code { get; set; }
+
+    // ── user ──
+    public string? Uname { get; set; }
+    public string? Face { get; set; }
+    public long Mid { get; set; }
 
     // ── check ──
     public string? State { get; set; }
