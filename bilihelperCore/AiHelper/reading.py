@@ -4,7 +4,7 @@
     from AiHelper.reading import AIClient
 
     client = AIClient.from_env()          # 读取环境变量（WPF 设置窗注入）
-    result = client.chat(prompt)          # 返回 JSON 字符串
+    result = client.chat(system, user)    # 返回 JSON 字符串
 
 环境变量配置（由 WPF 设置窗注入子进程，缺失时回退默认值）:
     DEEPSEEK_API_KEY  必填，API Key（未注入时抛 ValueError）
@@ -30,7 +30,15 @@ _DEFAULT_MODEL = "deepseek-v4-flash"
 
 class AIClient:
     def __init__(self, api_key: str, base_url: str, model: str):
-        self.client = OpenAI(api_key=api_key, base_url=base_url)
+        # 显式覆盖 SDK 默认值（timeout 600s / max_retries 2）：
+        # 默认单请求最坏 3×600s = 30 分钟才报错，UI 会长时间"正在整理中"。
+        # 300s 覆盖大分P（P19 实测需 ~210s），最多 2×300s = 10 分钟必出结果。
+        self.client = OpenAI(
+            api_key=api_key,
+            base_url=base_url,
+            timeout=300,
+            max_retries=1,
+        )
         self.model = model
 
     @classmethod
@@ -45,16 +53,29 @@ class AIClient:
         model = os.environ.get("DEEPSEEK_MODEL", _DEFAULT_MODEL).strip()
 
         if not api_key:
-            raise ValueError("未找到 DEEPSEEK_API_KEY，请在 WPF 设置窗（⚙️）中填写 API Key")
+            raise ValueError(
+                "未找到 DEEPSEEK_API_KEY，请在 WPF 设置窗（⚙️）中填写 API Key"
+            )
 
         return cls(api_key=api_key, base_url=base_url, model=model)
 
-    def chat(self, prompt: str):
-        """发送单轮对话，强制模型返回 JSON 对象（字符串形式）。"""
+    def chat(self, system: str, user: str):
+        """发送单轮对话，强制模型返回 JSON 对象（字符串形式）。
+
+        Args:
+            system: 系统提示词（角色定义 + 任务 + 输出格式要求）。
+            user: 用户消息内容（视频标题 + 字幕数据）。
+        """
         response = self.client.chat.completions.create(
             model=self.model,
-            messages=[{"role": "user", "content": prompt}],
+            messages=[
+                {"role": "system", "content": system},
+                {"role": "user", "content": user},
+            ],
             response_format={"type": "json_object"},
+            # 默认输出上限 4096 tokens，大分P 输出（P19 实测 17464 tokens）会被截断 → finish=length → 非法 JSON。
+            # 32768 覆盖实测最大输出（17464）留住约 2 倍余量；再大（65536+）opencode 代理偶发 500，不值得冒险。
+            max_tokens=32768,
         )
 
         return response.choices[0].message.content

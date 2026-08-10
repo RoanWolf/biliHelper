@@ -230,6 +230,10 @@ public class MainViewModel : ViewModelBase
     private readonly Dictionary<int, string> _aiReadProgress = new();
     private readonly HashSet<int> _aiReadBusyParts = new();
 
+    /// <summary>AI 整理并发闸门：最多 5 个子进程同时调用 DeepSeek，其余排队等位。</summary>
+    private const int MaxConcurrentAiRead = 5;
+    private readonly SemaphoreSlim _aiReadGate = new(MaxConcurrentAiRead, MaxConcurrentAiRead);
+
     /// <summary>
     /// 当前选中分P 是否正在 AI 整理（按钮隐藏/进度显示依据）。
     /// </summary>
@@ -711,9 +715,14 @@ public class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(CanAiRead));
 
         var ui = App.Current.Dispatcher;
+        bool gateHeld = false;
 
         try
         {
+            // 并发闸门：最多 5 个同时跑，其余排队；排队中被取消则不持许可
+            await _aiReadGate.WaitAsync(cts.Token);
+            gateHeld = true;
+
             var progress = new Progress<string>();
             progress.ProgressChanged += (_, text) =>
             {
@@ -791,6 +800,10 @@ public class MainViewModel : ViewModelBase
         }
         finally
         {
+            // 并发闸门：释放许可，让排队的分P 补位（未拿到许可不 Release）
+            if (gateHeld)
+                _aiReadGate.Release();
+
             // 清理该分P 的并发状态
             _aiReadCtsMap.Remove(partNumber);
             _aiReadBusyParts.Remove(partNumber);

@@ -3,6 +3,7 @@
 *.cookies
 
 # Test outputs
+test/
 test_*.json
 dump_*.json
 test_sub_*.srt

@@ -39,7 +39,7 @@ for _stream in (sys.stdout, sys.stderr):
 # AI 返回非法 JSON 时的重试次数（网络类异常不重试，避免重复计费）
 RETRY_ON_JSON_ERROR = 1
 
-PROMPT_TEMPLATE = """你是字幕整理助手。
+SYSTEM_PROMPT = """你是字幕整理助手。
 
 任务：
 将下面B站AI字幕转换为适合阅读的Markdown文本。
@@ -69,8 +69,9 @@ PROMPT_TEMPLATE = """你是字幕整理助手。
     }
   ]
 }
+"""
 
-视频标题：__TITLE__
+USER_PROMPT_TEMPLATE = """视频标题：__TITLE__
 
 字幕内容（每条字幕前的 [索引] 即 source_index）：
 
@@ -120,7 +121,8 @@ def build_subtitle_text(entries: list[dict]) -> str:
 
 
 def build_prompt(title: str, subtitle_text: str) -> str:
-    return PROMPT_TEMPLATE.replace("__TITLE__", title or "").replace(
+    """构造 user 消息内容（视频标题 + 字幕），system 提示词固定用 SYSTEM_PROMPT。"""
+    return USER_PROMPT_TEMPLATE.replace("__TITLE__", title or "").replace(
         "__SUBTITLES__", subtitle_text
     )
 
@@ -193,7 +195,8 @@ def main() -> int:
     parser.add_argument("--raw", help="raw.json 路径")
     parser.add_argument("--part", type=int, help="要处理的分P 号")
     parser.add_argument(
-        "--test", action="store_true",
+        "--test",
+        action="store_true",
         help="连通性测试模式：仅验证 API key/base_url/model，不处理字幕",
     )
     args = parser.parse_args()
@@ -257,7 +260,7 @@ def main() -> int:
         }
     )
 
-    prompt = build_prompt(title, build_subtitle_text(entries))
+    user_prompt = build_prompt(title, build_subtitle_text(entries))
 
     # ── 初始化客户端 ──────────────────────────────────────
     try:
@@ -273,7 +276,7 @@ def main() -> int:
     last_error = ""
     for attempt in range(RETRY_ON_JSON_ERROR + 1):
         try:
-            result = client.chat(prompt)
+            result = client.chat(SYSTEM_PROMPT, user_prompt)
             paragraphs = parse_and_validate(result, len(entries))
             break
         except Exception as e:  # noqa: BLE001 — 统一兜底，重试后报错
