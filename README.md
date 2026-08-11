@@ -258,7 +258,8 @@ AccountPanel.LoadUserInfoAsync()   （已登录时展示欢迎卡片）
 - 手动触发：当前分P 未整理时，AI润色 TAB 显示空状态卡片，点击按钮启动整理
 - **每分P 一次调用**，不分块（单分P 最大约 5000 token，上下文充足）
 - **支持多分P 并发整理**：每个分P 独立子进程 + CancellationToken，互不干扰
-- AI 返回 JSON 的 `response_format` 强制，解析失败自动重试 1 次
+- AI 返回 JSON 的 `response_format` 强制，分类重试：网络错误（断连/超时）与 5xx 重试最多 2 次（间隔 2s），JSON 解析失败重试 1 次，认证/4xx/限流等确定性错误不重试
+- **思考模式写死关闭**（`reading.py` 的 `extra_body={"thinking": {"type": "disabled"}}`）：思维链（reasoning_tokens）是 max_tokens 消耗大头——思考模式下 P37（1140 条字幕）需 37472 tokens，被 `max_tokens=32768` 截断；关闭后实测仅需 ~11k tokens，32768 余量约 3 倍（opencode 代理实测关闭思考后大分P 稳定成功）。**不要调大到 65536**——opencode 代理对大请求会 500（请求超载）。**已对比测试 `reasoning_effort=low` 档并排除**：low 虽不崩（completion < 32768），但段落粒度剧烈波动（同档位一轮 83 段一轮 14 段，reasoning_tokens 一轮 155 一轮 6106），阅读体验差——不要改回思考模式
 - 已整理的分P 显示段落列表，按钮禁用；切换分P 实时加载对应 read.json 数据
 
 ### 交互细节

@@ -46,7 +46,7 @@ No test project and no linter config exist — use `dotnet build` / `uv` for ver
 - 设置中心颜色一律 `DynamicResource`, 随主题切换; 两套主题仍保持 34 same-key brushes.
 
 ## AI polish conventions
-- One DeepSeek call per part (`response_format=json_object`), parse failure retries once; default model is hardcoded `deepseek-v4-flash` in `reading.py`.
+- One DeepSeek call per part (`response_format=json_object`), **思考模式写死关闭** (`extra_body={"thinking": {"type": "disabled"}}` in `reading.py`): 思维链 (reasoning_tokens) 是 max_tokens 消耗大头 — 思考模式下 P37 (1140 条字幕) 需 37472 tokens 被 32768 截断, 关闭后实测仅需 ~11k tokens。`max_tokens=32768` 保持不动 (余量约 3 倍, opencode 代理实测关闭思考后大分P 稳定成功); **不要调大到 65536** — opencode 代理对大请求会 500 (请求超载)。**已对比测试 `reasoning_effort=low` 档并排除**: low 虽不崩 (completion < 32768), 但段落粒度剧烈波动 (同档位一轮 83 段一轮 14 段, reasoning_tokens 一轮 155 一轮 6106), 阅读体验差 — 不要改回思考模式。classified retries in `ai_read.py`: network errors (`APIConnectionError`/`APITimeoutError`) and 5xx retry up to 2 times (2s backoff), JSON parse failure retries once, deterministic errors (auth/4xx/429/unknown) never retry; default model is hardcoded `deepseek-v4-flash` in `reading.py`.
 - `ai_read.py` reads `raw.json` with `encoding="utf-8-sig"` (BOM-tolerant) and clamps subtitle indices to `1..subtitle_count`.
 - Cancellation + per-part independent `CancellationTokenSource` → concurrent polish of multiple parts.
 - Connectivity test: WPF 设置窗「测试连通性」→ `AiReadService.TestConnectivityAsync` → `ai_read.py --test` → `AIClient.test_connectivity()`. 失败时脚本 stdout 输出 `{"type":"test","ok":false,"message":"分类原因"}` **且退出码为 1**，C# 侧无论退出码都先解析该 JSON 行拿到分类信息；无 JSON 时才回退 stderr 的 `[ERROR]`。
