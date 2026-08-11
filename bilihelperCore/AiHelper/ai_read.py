@@ -22,7 +22,14 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import time
 from pathlib import Path
+
+from openai import (
+    APIConnectionError,
+    APIStatusError,
+    APITimeoutError,
+)
 
 # 确保能导入 AiHelper 包（无论工作目录在哪）
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -36,8 +43,15 @@ for _stream in (sys.stdout, sys.stderr):
     except (AttributeError, ValueError):
         pass
 
-# AI 返回非法 JSON 时的重试次数（网络类异常不重试，避免重复计费）
-RETRY_ON_JSON_ERROR = 1
+# 重试策略（分类，避免对确定性错误重复计费）:
+#   - 网络类（断连/超时，APIConnectionError 含 APITimeoutError）: 重试 2 次
+#   - 服务端 5xx（APIStatusError.status_code >= 500）: 重试 2 次
+#   - JSON 解析失败: 重试 1 次
+#   - 确定性错误（AuthenticationError/NotFoundError/RateLimitError/4xx 等）: 不重试
+RETRY_NETWORK = 2
+RETRY_JSON = 1
+# 网络/5xx 重试之间的退避等待（秒）
+RETRY_BACKOFF_SECONDS = 2.0
 
 SYSTEM_PROMPT = """你是字幕整理助手。
 
@@ -127,7 +141,32 @@ def build_prompt(title: str, subtitle_text: str) -> str:
     )
 
 
-def parse_and_validate(result: str, subtitle_count: int) -> list[dict]:
+def is_retryable_api_error(exc: Exception) -> bool:
+    """判断是否属于值得重试的网络/服务端错误。
+
+    网络类（APIConnectionError，含 APITimeoutError）与 5xx 服务端错误
+    （代理偶发 500/503）属于瞬时故障，重试有实际意义；
+    认证/模型不存在/限流/4xx 属于确定性错误，重试只会重复计费。
+    """
+    if isinstance(exc, (APIConnectionError, APITimeoutError)):
+        return True
+    if isinstance(exc, APIStatusError):
+        return exc.status_code >= 500
+    return False
+
+
+def describe_api_error(exc: Exception) -> str:
+    """生成用户可读的错误描述，异常类型未知时回退到 str()。"""
+    if isinstance(exc, APITimeoutError):
+        return f"连接超时: {exc}"
+    if isinstance(exc, APIConnectionError):
+        return f"网络连接失败: {exc}"
+    if isinstance(exc, APIStatusError):
+        return f"服务端返回 HTTP {exc.status_code}: {exc}"
+    return str(exc)
+
+
+def parse_and_validate(result: str | None, subtitle_count: int) -> list[dict]:
     """解析 AI 返回的 JSON，校验结构与 source 索引范围。
 
     Args:
@@ -140,6 +179,9 @@ def parse_and_validate(result: str, subtitle_count: int) -> list[dict]:
     Raises:
         ValueError: 结构不合法 / 段落为空。
     """
+    if result is None:
+        raise ValueError("AI 返回为空") from None
+
     try:
         parsed = json.loads(result)
     except json.JSONDecodeError as e:
@@ -271,18 +313,45 @@ def main() -> int:
 
     progress(f"正在调用 DeepSeek (P{part_no} · {len(entries)} 条字幕)...")
 
-    # ── 调用 DeepSeek（仅 JSON 解析失败重试）──────────────
+    # ── 调用 DeepSeek（分类重试）──────────────────────────
+    # 重试次数按错误类型分级（见文件头 RETRY_* 注释）；总耗时上界:
+    #   最长 3 次网络调用 × 300s 超时 + 2 次退避 ≈ 15 分钟，由超时而非重试兜底。
     paragraphs = None
     last_error = ""
-    for attempt in range(RETRY_ON_JSON_ERROR + 1):
+    network_attempts = 0
+    json_attempts = 0
+    while True:
         try:
             result = client.chat(SYSTEM_PROMPT, user_prompt)
             paragraphs = parse_and_validate(result, len(entries))
             break
-        except Exception as e:  # noqa: BLE001 — 统一兜底，重试后报错
-            last_error = str(e)
-            if attempt < RETRY_ON_JSON_ERROR:
-                progress(f"解析失败，重试 {attempt + 1}/{RETRY_ON_JSON_ERROR}...")
+        except Exception as e:  # noqa: BLE001 — 统一捕获后按类型分类处理
+            last_error = describe_api_error(e)
+
+            if is_retryable_api_error(e):
+                # 网络/5xx：最多重试 RETRY_NETWORK 次
+                network_attempts += 1
+                if network_attempts <= RETRY_NETWORK:
+                    progress(
+                        f"网络/服务端异常，{network_attempts}/{RETRY_NETWORK} 次重试中..."
+                    )
+                    time.sleep(RETRY_BACKOFF_SECONDS)
+                    continue
+                break
+
+            # 确定性 API 错误（401 认证/404 模型不存在/429 限流等 4xx）不重试
+            if isinstance(e, APIStatusError):
+                break
+
+            # JSON 解析失败（ValueError）最多重试 RETRY_JSON 次
+            if isinstance(e, ValueError):
+                json_attempts += 1
+                if json_attempts <= RETRY_JSON:
+                    progress(f"解析失败，{json_attempts}/{RETRY_JSON} 次重试中...")
+                    continue
+
+            # 其余未知异常：不重试，避免重复计费
+            break
 
     if paragraphs is None:
         print(f"[ERROR] AI 整理失败: {last_error}", file=sys.stderr)

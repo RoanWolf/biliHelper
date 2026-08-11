@@ -73,9 +73,11 @@ class AIClient:
                 {"role": "user", "content": user},
             ],
             response_format={"type": "json_object"},
-            # 默认输出上限 4096 tokens，大分P 输出（P19 实测 17464 tokens）会被截断 → finish=length → 非法 JSON。
-            # 32768 覆盖实测最大输出（17464）留住约 2 倍余量；再大（65536+）opencode 代理偶发 500，不值得冒险。
+            # 关闭思考模式（写死）：思维链（reasoning_tokens）是 max_tokens 消耗大头，
+            # 思考模式下 P37 需 37472 tokens 会被截断；关闭后实测仅需 ~11k tokens，
+            # 32768 余量约 3 倍，足够覆盖所有分P。调大 65536 反而触发 opencode 代理 500（请求超载）。
             max_tokens=32768,
+            extra_body={"thinking": {"type": "disabled"}},
         )
 
         return response.choices[0].message.content
@@ -101,10 +103,10 @@ class AIClient:
             return False, f"模型不存在：{self.model}（请检查模型名或 base_url）"
         except RateLimitError:
             return False, "触发限流（额度不足或请求过频）"
-        except APIConnectionError:
-            return False, "无法连接到 base_url，请检查网络或地址"
         except APITimeoutError:
             return False, "连接超时，请检查网络"
+        except APIConnectionError:
+            return False, "无法连接到 base_url，请检查网络或地址"
         except Exception as e:  # noqa: BLE001 — 未知错误兜底
             return False, f"连接失败（未知错误）：{e}"
         return True, "连接成功"
