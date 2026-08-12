@@ -60,7 +60,11 @@
                                 BorderThickness="1"
                                 VerticalAlignment="Top"
                                 ClipToBounds="True">
+
                             <Grid>
+                                <Grid.Clip>
+                                    <EllipseGeometry Center="40,40" RadiusX="40" RadiusY="40"/>
+                                </Grid.Clip>
                                 <Image x:Name="UserAvatar"
                                        Stretch="UniformToFill"
                                        RenderOptions.BitmapScalingMode="HighQuality"

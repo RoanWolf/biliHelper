@@ -58,19 +58,19 @@
 
                     <!-- API Key -->
                     <TextBlock Text="API Key" Style="{StaticResource FluentFieldLabelStyle}" />
-                    <PasswordBox x:Name="ApiKeyBox" />
+                    <ui:PasswordBox x:Name="ApiKeyBox" />
                     <!-- Base URL -->
                     <TextBlock Text="Base URL"
                                Style="{StaticResource FluentFieldLabelStyle}"
                                Margin="0,18,0,8" />
-                    <TextBox x:Name="BaseUrlBox"
-                             Text="https://api.deepseek.com" />
+                    <ui:TextBox x:Name="BaseUrlBox"
+                                Text="https://api.deepseek.com" />
                     <!-- 模型 -->
                     <TextBlock Text="模型"
                                Style="{StaticResource FluentFieldLabelStyle}"
                                Margin="0,18,0,8" />
-                    <TextBox x:Name="ModelBox"
-                             Text="deepseek-v4-flash" />
+                    <ui:TextBox x:Name="ModelBox"
+                                Text="deepseek-v4-flash" />
                 </StackPanel>
             </Border>
 

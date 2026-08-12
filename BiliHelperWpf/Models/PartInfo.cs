@@ -44,7 +44,7 @@ public class PartInfo
     /// </summary>
     public string DisplayTitle => string.IsNullOrWhiteSpace(PartTitle)
         ? $"P{PartNumber}"
-        : $"P{PartNumber} · {PartTitle}";
+        : $"P{PartNumber} {PartTitle}";
 
     private static string FormatDuration(double seconds)
     {

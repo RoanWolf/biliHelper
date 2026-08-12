@@ -47,7 +47,7 @@ biliHelper/
 │   │   ├── NullToVisibilityConverter.cs
 │   │   └── StatusToColorConverter.cs
 │   ├── ThemeManager.cs             主题切换薄封装（内部调用 WPF-UI ApplicationThemeManager；持久化 %LocalAppData%\BiliHelper\theme.txt）
-│   ├── SettingsWindow.xaml(.cs)    设置中心（分组导航：服务/个性化，RadioButton 主色药丸选中态；FluentWindow 固定大小、圆角 + 外圈边框与主窗口区分）
+│   ├── SettingsWindow.xaml(.cs)    设置中心（分组导航：服务/个性化，RadioButton 选中态淡灰底+主色文字；FluentWindow 固定大小 880×620、禁用 resize 光标三重保险、隐藏最大最小化按钮）
 │   ├── Settings/
 │   │   ├── SettingsStyles.xaml     共享样式（10 个：页面标题/分组标题/卡片/导航药丸/主题选择卡，FontSize 由顶部统一控制）
 │   │   ├── AccountPanel.xaml(.cs)  账号面板：内嵌扫码登录（互斥串行防并发写）+ 欢迎卡片（头像/昵称/UID）+ 退出
@@ -275,7 +275,7 @@ WPF 端支持浅色 / 深色两种主题，运行时可在设置中心「外观�
 - 主题资源由 **WPF-UI 4.3.0** 提供：`App.xaml` 加载 `<ui:ThemesDictionary Theme="Light"/>` + `<ui:ControlsDictionary/>`；切换时 `ApplicationThemeManager.Apply(theme, WindowBackdropType.None, updateAccent: true)` 替换主题字典并同步注入 accent 颜色资源。
 - `ThemeManager.cs`：**薄封装**——对外 API（`IsDark` / `ApplyDark` / `Toggle` / `LoadPersisted`）不变，内部调用 WPF-UI；持久化仍写入 `%LocalAppData%\BiliHelper\theme.txt`。
 - 自研 `Themes/` 目录（Light/Dark/ScrollBar，34 画刷）与 `ThemeManager` 的字典替换逻辑**已整体移除**；控件指针仅保留 `{DynamicResource WPF-UI key}`（如 `TextFillColorPrimaryBrush` / `CardBackgroundFillColorDefaultBrush` / `SystemFillColorCriticalBrush`）。
-- 窗口框架：主窗口与设置中心均为 `FluentWindow`（Mica / 圆角 / 原生标题栏由库接管）。
+- 窗口框架：主窗口与设置中心均为 `FluentWindow`（`WindowBackdropType=None` / 圆角 / 原生标题栏由库接管）。深色主题下 WPF-UI 默认背景是半透明叠加，在 `WindowBackdropType=None` 下会叠出死黑 — `ThemeManager` 通过 `ApplyDarkOverrides` 注入不透明浅灰覆盖（`ApplicationBackgroundBrush` / `CardBackgroundFillColorDefaultBrush` 等 30+ 个 key），浅色主题下 `ApplyLightOverrides` 移除这些覆盖。
 
 ### 关键约定（勿破坏）
 
@@ -283,6 +283,7 @@ WPF 端支持浅色 / 深色两种主题，运行时可在设置中心「外观�
 - `Binding.Converter` 属性不是依赖属性，**不能**用 `DynamicResource`，因此 `BoolToVis` / `InverseBoolToVis` / `NullToVis` / `StatusToColor` 这类 converter 引用必须用 `StaticResource`（定义在 `Window.Resources` 内）。
 - 事件色转换器（`StatusToColorConverter`）通过 `Application.Current.TryFindResource` 运行时取色（key 已改为 WPF-UI 的 `SystemFillColorSuccessBrush` / `SystemFillColorAttentionBrush` / `SystemFillColorNeutralBrush`），因此能随主题变化。
 - **accent 系资源（`AccentFillColorDefaultBrush` / `SystemFillColorAttentionBrush` 等）由 `ApplicationAccentColorManager` 在调用 `Apply(..., updateAccent: true)` 时运行时注入**——`ThemeManager` 必须保持 `updateAccent: true`，否则这些 key 缺失。
+- **颜色覆盖机制**：`ThemeManager` 通过 `ApplyDarkOverrides` / `ApplyLightOverrides` 在应用资源顶层注入/移除覆盖资源。深色主题注入不透明浅灰覆盖（避免死黑），浅色主题淡化 ListBox 选中态。主题一致时仍需调用 `ApplyThemeOverrides(dark)`，否则启动时覆盖资源不会注入。
 
 ---
 
@@ -292,9 +293,10 @@ WPF 设置中心（⚙️ `SettingsWindow`）是唯一的配置入口：账号�
 
 ### 布局
 
-- `FluentWindow` 固定 880×620（`ResizeMode=NoResize`），圆角 + 外圈边框与主窗口区分。
-- 标题栏为 WPF-UI `TitleBar`（**48px** 高，默认值），只保留「设置」标题 + logo + 窗口按钮（最小化/最大化/关闭），整窗不可拉伸。
-- 左侧**分组导航**（`RadioButton` 主色药丸选中态，无 icon）：
+- `FluentWindow` 固定 880×620（`MinWidth=MaxWidth=880`, `MinHeight=MaxHeight=620`, `ResizeMode=NoResize`），圆角 + 外圈边框与主窗口区分。
+- **彻底禁用 resize 光标**：FluentWindow 的 WindowChrome 即使 `ResizeMode=NoResize` 仍会在边缘显示 resize 光标 — 三重保险：(1) 覆盖 `SetWindowChrome()` 强制 `ResizeBorderThickness=0`；(2) `WndProc` 拦截 `WM_NCHITTEST`，将 resize 区域改为 `HTCLIENT`；(3) 同时拦截 `WM_SETCURSOR`，检测到 resize hit test 时强制设置箭头光标。
+- 标题栏为 WPF-UI `TitleBar`（**32px** 高，从默认 48px 压缩消除按钮下方空白带），带 logo 图标 12×12 + 背景 `CardBackgroundFillColorDefaultBrush`；**隐藏最大最小化按钮**（`ShowMaximize="False"` `ShowMinimize="False"`，只保留关闭按钮）。
+- 左侧**分组导航**（`RadioButton`，选中态为**淡灰底 + 主色文字**，去掉左侧指示条和粗体，模板简化为单个 ContentPresenter，无 icon）：
   - **服务**：获取cookie、AI模型
   - **个性化**：外观
 - 右侧内容区承载面板；`Settings/SettingsStyles.xaml` 共享样式（页面标题 `FluentPageTitleStyle`、分组标题 `FluentGroupTitleStyle`、卡片/按钮/输入框/导航药丸/主题卡），面板大标题字号统一 20px。

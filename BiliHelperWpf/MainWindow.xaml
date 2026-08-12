@@ -12,7 +12,7 @@
         WindowStartupLocation="CenterScreen"
         ExtendsContentIntoTitleBar="True"
         ResizeMode="CanResizeWithGrip"
-        WindowBackdropType="Mica"
+        WindowBackdropType="None"
         Background="{DynamicResource ApplicationBackgroundBrush}"
         FontFamily="pack://application:,,,/BiliHelperWpf;component/Assets/#Lilex Duo, Microsoft YaHei, PingFang SC, sans-serif"
         FontSize="14"
@@ -26,16 +26,11 @@
 
 
 
-
-
-
-
-
     </Window.Resources>
 
     <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="48" />    <!-- WPF-UI TitleBar（默认 48px 高） -->
+            <RowDefinition Height="32" />    <!-- WPF-UI TitleBar（压到 32px，消除按钮下方空白带） -->
             <RowDefinition Height="Auto" />  <!-- URL 输入行 -->
             <RowDefinition Height="Auto" />  <!-- 进度 -->
             <RowDefinition Height="Auto" />  <!-- 错误 -->
@@ -45,16 +40,21 @@
         </Grid.RowDefinitions>
 
         <!-- ═══ WPF-UI 标题栏（自动处理拖拽、双击最大化、窗口按钮，主题感知） ═══ -->
-        <ui:TitleBar Grid.Row="0"
+        <ui:TitleBar x:Name="MainWindowTitleBar"
+                     Grid.Row="0"
+                     Height="32"
+                     Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
                      Title="BiliHelper"
                      CloseWindowByDoubleClickOnIcon="True">
             <ui:TitleBar.Icon>
-                <ui:ImageIcon Source="pack://application:,,,/Assets/logo.png" />
+                <ui:ImageIcon Source="pack://application:,,,/Assets/logo.png"
+                              Width="12" Height="12" />
             </ui:TitleBar.Icon>
         </ui:TitleBar>
 
         <!-- ═══ URL 输入行 ═══ -->
-        <Border Grid.Row="1" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}" Padding="16,12"
+        <Border x:Name="UrlRow"
+                Grid.Row="1" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}" Padding="16,12"
                 BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" BorderThickness="0,0,0,1">
             <StackPanel>
                 <Grid>
@@ -65,34 +65,36 @@
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
 
-                    <TextBox Grid.Column="0"
-                             Text="{Binding Url, UpdateSourceTrigger=PropertyChanged}"
-                             FontSize="14"
-                             Padding="12,8"
-                             Height="38"
-                             VerticalContentAlignment="Center" />
+                    <ui:TextBox Grid.Column="0"
+                                Text="{Binding Url, UpdateSourceTrigger=PropertyChanged}"
+                                FontSize="14"
+                                Height="38"
+                                VerticalContentAlignment="Center" />
 
-                    <Button Grid.Column="1"
-                            Content="拉取字幕"
-                            Command="{Binding FetchCommand}"
-                            Height="38" Margin="8,0,0,0"
-                            Padding="20,0" FontSize="13" />
+                    <ui:Button Grid.Column="1"
+                               Content="拉取字幕"
+                               Command="{Binding FetchCommand}"
+                               Height="38" Margin="8,0,0,0"
+                               Padding="20,0" FontSize="13"
+                               Appearance="Primary" />
 
                     <!-- 历史记录按钮 -->
-                    <Button Grid.Column="2"
-                            Content="📋 历史"
-                            Command="{Binding ToggleHistoryCommand}"
-                            Height="38" Margin="8,0,0,0"
-                            Padding="14,0"
-                            FontSize="13" />
+                    <ui:Button Grid.Column="2"
+                               Content="📋 历史"
+                               Command="{Binding ToggleHistoryCommand}"
+                               Height="38" Margin="8,0,0,0"
+                               Padding="14,0"
+                               FontSize="13"
+                               Appearance="Secondary" />
                     <!-- 配置按钮 -->
-                    <Button Grid.Column="3"
-                            Content="⚙️ 配置"
-                            x:Name="SettingsButton"
-                            Click="SettingsButton_Click"
-                            Height="38" Margin="8,0,0,0"
-                            Padding="14,0"
-                            FontSize="13" />
+                    <ui:Button Grid.Column="3"
+                               Content="⚙️ 配置"
+                               x:Name="SettingsButton"
+                               Click="SettingsButton_Click"
+                               Height="38" Margin="8,0,0,0"
+                               Padding="14,0"
+                               FontSize="13"
+                               Appearance="Secondary" />
                 </Grid>
                 <TextBlock Text="💡 支持 BV 号 / 完整 URL / 多P合集 / 自动识别字幕语言"
                            FontSize="11" Foreground="{DynamicResource TextFillColorTertiaryBrush}" Margin="0,4,0,0" />
@@ -184,13 +186,12 @@
             <Grid Visibility="{Binding HasVideoInfo, Converter={StaticResource BoolToVis}}">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="260" />
-                    <ColumnDefinition Width="4" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
                 <!-- 左侧：分P列表 -->
                 <Border Grid.Column="0" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
-                        BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" BorderThickness="0,0,1,0">
+                        BorderThickness="0">
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
@@ -209,6 +210,10 @@
                                  SelectedItem="{Binding SelectedPart}"
                                  Background="Transparent" BorderThickness="0"
                                  Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                                 VirtualizingPanel.IsVirtualizing="True"
+                                 VirtualizingPanel.VirtualizationMode="Recycling"
+                                 VirtualizingPanel.IsContainerVirtualizable="True"
+                                 ScrollViewer.CanContentScroll="True"
                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
@@ -246,16 +251,17 @@
                     </Grid>
                 </Border>
 
-                <GridSplitter Grid.Column="1" Width="4"
+                <!-- 可拖拽分割条：叠在分P栏右缘，不占独立列，拖动调整左侧宽度 -->
+                <GridSplitter Grid.Column="0" Width="5"
+                              HorizontalAlignment="Right"
+                              VerticalAlignment="Stretch"
                               Background="Transparent"
-                              HorizontalAlignment="Center"
                               ResizeDirection="Columns" />
 
-                <!-- 右侧：字幕区域 -->
-                <Border Grid.Column="2" Background="{DynamicResource ApplicationBackgroundBrush}">
+                <!-- 右侧：字幕区域（直接紧跟分割条，无独立中间列） -->
+                <Border Grid.Column="1" Background="{DynamicResource ApplicationBackgroundBrush}">
                     <Grid>
                         <Grid.RowDefinitions>
-                            <RowDefinition Height="Auto" />
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
 
@@ -264,7 +270,46 @@
                                     SelectedIndex="{Binding SelectedSubtitleTab, Mode=TwoWay}"
                                     Background="Transparent"
                                     BorderThickness="0">
-                            <TabItem Header="原始字幕">
+                            <TabItem HorizontalAlignment="Left"
+                                     Margin="0,0,8,0"
+                                     Padding="14,6">
+                                <TabItem.Header>
+                                    <StackPanel Width="88" VerticalAlignment="Center" Cursor="Hand">
+                                        <TextBlock Text="原始字幕"
+                                                   FontSize="14"
+                                                   HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=TabItem}}" Value="True">
+                                                            <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+                                                            <Setter Property="FontWeight" Value="SemiBold" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                        <Border Height="2"
+                                                CornerRadius="1"
+                                                Width="56"
+                                                HorizontalAlignment="Center"
+                                                Margin="0,4,0,0">
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Setter Property="Background" Value="Transparent" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=TabItem}}" Value="True">
+                                                            <Setter Property="Background" Value="{DynamicResource AccentFillColorDefaultBrush}" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                        </Border>
+
+                                    </StackPanel>
+                                </TabItem.Header>
                                 <Grid Visibility="{Binding IsOriginalSubtitleVisible, Converter={StaticResource BoolToVis}}">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
@@ -282,12 +327,11 @@
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
 
-                                    <TextBox Grid.Column="0"
-                                             Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
-                                             FontSize="13"
-                                             Padding="8,0"
-                                             Height="32"
-                                             VerticalContentAlignment="Center" />
+                                    <ui:TextBox Grid.Column="0"
+                                                Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                                                FontSize="13"
+                                                Height="32"
+                                                VerticalContentAlignment="Center" />
 
                                     <TextBlock Grid.Column="1" Text="{Binding FilteredCount}"
                                                FontSize="11" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
@@ -307,7 +351,11 @@
                                 <ListBox x:Name="SubtitleListBox"
                                          ItemsSource="{Binding FilteredEntries}"
                                          Background="Transparent" BorderThickness="0"
-                                         Foreground="{DynamicResource TextFillColorPrimaryBrush}">
+                                         Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                                         VirtualizingPanel.IsVirtualizing="True"
+                                         VirtualizingPanel.VirtualizationMode="Recycling"
+                                         VirtualizingPanel.IsContainerVirtualizable="True"
+                                         ScrollViewer.CanContentScroll="True">
                                     <ListBox.ItemTemplate>
                                         <DataTemplate>
                                             <Grid>
@@ -349,7 +397,45 @@
                             </Grid>
                         </Grid>
                             </TabItem>
-                            <TabItem Header="AI润色">
+                            <TabItem HorizontalAlignment="Left"
+                                     Margin="0,0,8,0"
+                                     Padding="14,6">
+                                <TabItem.Header>
+                                    <StackPanel Width="88" VerticalAlignment="Center" Cursor="Hand">
+                                        <TextBlock Text="AI润色"
+                                                   FontSize="14"
+                                                   HorizontalAlignment="Center"
+                                                   VerticalAlignment="Center">
+                                            <TextBlock.Style>
+                                                <Style TargetType="TextBlock">
+                                                    <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=TabItem}}" Value="True">
+                                                            <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+                                                            <Setter Property="FontWeight" Value="SemiBold" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </TextBlock.Style>
+                                        </TextBlock>
+                                        <Border Height="2"
+                                                CornerRadius="1"
+                                                Width="56"
+                                                HorizontalAlignment="Center"
+                                                Margin="0,4,0,0">
+                                            <Border.Style>
+                                                <Style TargetType="Border">
+                                                    <Setter Property="Background" Value="Transparent" />
+                                                    <Style.Triggers>
+                                                        <DataTrigger Binding="{Binding IsSelected, RelativeSource={RelativeSource AncestorType=TabItem}}" Value="True">
+                                                            <Setter Property="Background" Value="{DynamicResource AccentFillColorDefaultBrush}" />
+                                                        </DataTrigger>
+                                                    </Style.Triggers>
+                                                </Style>
+                                            </Border.Style>
+                                        </Border>
+                                    </StackPanel>
+                                </TabItem.Header>
                                 <Grid Visibility="{Binding IsFullTextVisible, Converter={StaticResource BoolToVis}}">
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="Auto" />  <!-- 错误 -->
@@ -401,15 +487,16 @@
                                                HorizontalAlignment="Center"
                                                Margin="0,8,0,0" />
                                     <!-- 整理中隐藏按钮，进度文本显示在按钮下方 -->
-                                    <Button Content="✨ 立即整理当前分P"
+                                    <ui:Button Content="✨ 立即整理当前分P"
                                             Command="{Binding AiReadCommand}"
                                             Height="36"
                                             Padding="20,0"
                                             Margin="0,20,0,0"
                                             FontSize="13"
+                                            Appearance="Primary"
                                             HorizontalAlignment="Center"
                                             Visibility="{Binding IsAiReadBusy, Converter={StaticResource InverseBoolToVis}}">
-                                    </Button>
+                                    </ui:Button>
                                     <TextBlock Text="{Binding AiReadStatus}"
                                                FontSize="12"
                                                Foreground="{DynamicResource TextFillColorSecondaryBrush}"
@@ -490,7 +577,7 @@
             </Grid>
         </Border>
 
-        <!-- ═══ 历史记录抽屉遮罩 ═══ -->
+        <!-- ═══ 历史记录抽屉遮罩（覆盖整窗含标题栏；抽屉背景不透明盖住标题栏按钮，✕ 关闭按钮在抽屉右上角；TitleBar 的 HTCAPTION 劫持由 code-behind 在抽屉打开时设 IsHitTestVisible=false 解除，✕ 可正常点击，标题栏不可操作） ═══ -->
         <Grid Grid.RowSpan="7"
               Visibility="{Binding IsHistoryOpen, Converter={StaticResource BoolToVis}}"
               Panel.ZIndex="100">
@@ -498,14 +585,14 @@
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="320" />
             </Grid.ColumnDefinitions>
-            <!-- 半透明遮罩（只覆盖左侧，不挡抽屉） -->
-            <Rectangle Grid.Column="0" Fill="{DynamicResource SystemFillColorSolidNeutralBrush}" Opacity="0.3"
+            <!-- 内容区半透明遮罩（只覆盖左侧，不挡抽屉）——黑色半透明在深色/浅色下都协调，避免深色下亮灰遮罩发白 -->
+            <Rectangle Grid.Column="0" Fill="Black" Opacity="0.3"
                        Cursor="Hand"
                        PreviewMouseDown="HistoryOverlay_MouseDown" />
-            <!-- 抽屉面板（右侧滑出） -->
+            <!-- 抽屉面板（右侧滑出，占满整窗含标题栏区域） -->
             <Border x:Name="HistoryDrawer"
                     Grid.Column="1"
-                    Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                    Background="{DynamicResource ApplicationBackgroundBrush}"
                     BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
                     BorderThickness="1,0,0,0"
                     RenderTransformOrigin="1,0.5">
@@ -529,44 +616,26 @@
                                 <ColumnDefinition Width="*" />
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
-                            <TextBlock Text="📋 历史记录"
+                            <TextBlock Grid.Column="0"
+                                       Text="📋 历史记录"
                                        FontSize="15" FontWeight="SemiBold"
                                        VerticalAlignment="Center" />
-                            <Button Grid.Column="1"
-                                    x:Name="HistoryCloseButton"
-                                    Command="{Binding ToggleHistoryCommand}"
-                                    Cursor="Hand"
-                                    Width="32" Height="32"
-                                    BorderThickness="0"
-                                    Padding="0"
-                                    ToolTip="关闭"
-                                    Background="Transparent"
-                                    Foreground="{DynamicResource TextFillColorSecondaryBrush}">
-                                <Button.Template>
-                                    <ControlTemplate TargetType="Button">
-                                        <Border x:Name="Bd" Background="{TemplateBinding Background}">
-                                            <Path Data="M0,0 L12,12 M12,0 L0,12"
-                                                  Stroke="{TemplateBinding Foreground}"
-                                                  StrokeThickness="1.5"
-                                                  StrokeEndLineCap="Round"
-                                                  StrokeStartLineCap="Round"
-                                                  VerticalAlignment="Center"
-                                                  HorizontalAlignment="Center"
-                                                  Width="12" Height="12"
-                                                  Stretch="Uniform" />
-                                        </Border>
-                                        <ControlTemplate.Triggers>
-                                            <Trigger Property="IsMouseOver" Value="True">
-                                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource ControlFillColorSecondaryBrush}" />
-                                                <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
-                                            </Trigger>
-                                            <Trigger Property="IsPressed" Value="True">
-                                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource ControlFillColorSecondaryBrush}" />
-                                            </Trigger>
-                                        </ControlTemplate.Triggers>
-                                    </ControlTemplate>
-                                </Button.Template>
-                            </Button>
+                            <ui:Button Grid.Column="1"
+                                       x:Name="HistoryCloseButton"
+                                       Command="{Binding ToggleHistoryCommand}"
+                                       Width="32" Height="32"
+                                       Padding="0"
+                                       ToolTip="关闭"
+                                       Appearance="Transparent"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}">
+                                <Path Data="M0,0 L12,12 M12,0 L0,12"
+                                      Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ui:Button}}"
+                                      StrokeThickness="1.5"
+                                      StrokeEndLineCap="Round"
+                                      StrokeStartLineCap="Round"
+                                      Width="12" Height="12"
+                                      Stretch="Uniform" />
+                            </ui:Button>
                         </Grid>
                     </Border>
 

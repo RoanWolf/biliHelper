@@ -18,6 +18,13 @@ public class MainViewModel : ViewModelBase
     private readonly AuthService _authService = new();
     private CancellationTokenSource? _cts;
 
+    // 当前视频 read.json 的内存缓存——避免切换分P 时每次同步读磁盘+全量解析（曾导致 UI 卡约 1 秒）
+    private List<ReadPartData>? _readPartsCache;
+    // 缓存是否已加载（区分「未加载」与「已加载但为空」：无 read.json 时也只需读一次盘）
+    private bool _readPartsCacheLoaded;
+    // 缓存是否正在后台加载中（加载完成前其它分P 切换不重复触发读盘）
+    private bool _readPartsCacheLoading;
+
     // ── Cookie 状态 ─────────────────────────────────────────
     private CookieState _cookieState;
     public CookieState CookieState
@@ -154,7 +161,12 @@ public class MainViewModel : ViewModelBase
         }
     }
 
-    public ObservableCollection<SubtitleEntry> FilteredEntries { get; } = [];
+    private ObservableCollection<SubtitleEntry> _filteredEntries = [];
+    public ObservableCollection<SubtitleEntry> FilteredEntries
+    {
+        get => _filteredEntries;
+        private set => SetProperty(ref _filteredEntries, value);
+    }
 
     private string _statusMessage = string.Empty;
     public string StatusMessage
@@ -402,7 +414,7 @@ public class MainViewModel : ViewModelBase
         HasProgress = false;
         ProgressText = string.Empty;
         SelectedPart = null;
-        FilteredEntries.Clear();
+        FilteredEntries = new ObservableCollection<SubtitleEntry>();
         ResetAiReadState();
         StatusMessage = $"📂 已从历史加载 · {info.Title} · 共 {info.TotalParts}P · {info.TotalSubtitleCount} 条字幕";
 
@@ -439,7 +451,7 @@ public class MainViewModel : ViewModelBase
         LoadProgress = string.Empty;
         VideoInfo = null;
         SelectedPart = null;
-        FilteredEntries.Clear();
+        FilteredEntries = new ObservableCollection<SubtitleEntry>();
         ResetAiReadState();
 
         // 先准备好空的 VideoInfo，onMeta 时赋值并绑定 UI，后续 onPart 直接追加
@@ -619,6 +631,10 @@ public class MainViewModel : ViewModelBase
         _aiReadBusyParts.Clear();
         // 清空分P TAB 记忆（加载新视频/历史时避免旧分P 记忆串台）
         _partTabMemory.Clear();
+        // 清空 read.json 内存缓存（切换视频/加载历史后旧缓存失效）
+        _readPartsCache = null;
+        _readPartsCacheLoaded = false;
+        _readPartsCacheLoading = false;
         App.Log("AI 整理状态已重置（取消进行中的任务）");
         _aiParagraphs = [];
         AiReadStatus = string.Empty;
@@ -647,6 +663,7 @@ public class MainViewModel : ViewModelBase
         else
         {
             var partNumber = SelectedPart.PartNumber;
+            var bvId = VideoInfo.BvId;
 
             // 正在整理中：显示进度，不读缓存
             if (_aiReadBusyParts.Contains(partNumber))
@@ -657,22 +674,97 @@ public class MainViewModel : ViewModelBase
                     : "正在启动 AI 整理...";
                 AiReadError = false;
                 AiReadErrorMessage = string.Empty;
-                App.Log($"AI 阅读数据加载: bvId={VideoInfo.BvId}, part={partNumber}, 正在整理中");
+                App.Log($"AI 阅读数据加载: bvId={bvId}, part={partNumber}, 正在整理中");
+            }
+            else if (!_readPartsCacheLoaded)
+            {
+                // 缓存未就绪：首次触发后台读取（只触发一次），期间显示"加载中"占位，
+                // 避免每次切换分P 都在 UI 线程同步读磁盘+全量解析（曾导致 UI 卡约 1 秒）。
+                if (!_readPartsCacheLoading)
+                    LoadReadCacheAsync(partNumber);
+
+                _aiParagraphs = [];
+                AiReadStatus = "正在加载 AI 整理记录...";
+                AiReadError = false;
+                AiReadErrorMessage = string.Empty;
+                App.Log($"AI 阅读数据加载: bvId={bvId}, part={partNumber}, 缓存加载中");
             }
             else
             {
-                var parts = HistoryService.LoadReadParts(VideoInfo.BvId);
-                var part = parts?.FirstOrDefault(p => p.PartNumber == partNumber);
+                // 缓存已就绪，纯内存查询
+                var part = _readPartsCache?.FirstOrDefault(p => p.PartNumber == partNumber);
                 _aiParagraphs = part?.Paragraphs ?? [];
                 AiReadStatus = part != null
                     ? $"✅ 已整理 · {part.Paragraphs.Count} 个段落"
                     : string.Empty;
                 AiReadError = false;
                 AiReadErrorMessage = string.Empty;
-                App.Log($"AI 阅读数据加载: bvId={VideoInfo.BvId}, part={partNumber}, "
+                App.Log($"AI 阅读数据加载: bvId={bvId}, part={partNumber}, "
                         + $"{(part != null ? $"已缓存 {part.Paragraphs.Count} 段" : "无缓存，待手动整理")}");
             }
         }
+        OnPropertyChanged(nameof(AiParagraphs));
+        OnPropertyChanged(nameof(HasAiParagraphs));
+        OnPropertyChanged(nameof(ShowAiReadEmptyCard));
+        OnPropertyChanged(nameof(IsCurrentPartAiReadBusy));
+        OnPropertyChanged(nameof(CanAiRead));
+    }
+
+    /// <summary>
+    /// 后台线程读取当前视频 read.json 到内存缓存（整个视频只触发一次）。
+    /// 完成后若当前选中分P 仍是发起加载的分P，直接填充展示；否则重新走
+    /// <see cref="LoadAiReadForSelectedPart"/> 刷新当前分P（防快速切分P 竞态）。
+    /// </summary>
+    private async void LoadReadCacheAsync(int requestedPartNumber)
+    {
+        if (_readPartsCacheLoaded || _readPartsCacheLoading)
+            return;
+
+        _readPartsCacheLoading = true;
+
+        var bvId = VideoInfo?.BvId;
+        if (string.IsNullOrEmpty(bvId))
+        {
+            _readPartsCacheLoading = false;
+            return;
+        }
+
+        List<ReadPartData>? loaded;
+        try
+        {
+            loaded = await Task.Run(() => HistoryService.LoadReadParts(bvId));
+        }
+        catch (Exception ex)
+        {
+            App.Log($"加载阅读数据异常: bvId={bvId}, {ex.Message}");
+            loaded = null;
+        }
+
+        // async void 续体回到 UI 线程（WPF SynchronizationContext），与 LoadAiReadForSelectedPart 同线程，无竞态
+        _readPartsCache = loaded;
+        _readPartsCacheLoaded = true;
+        _readPartsCacheLoading = false;
+
+        if (SelectedPart?.PartNumber == requestedPartNumber)
+        {
+            // 用户仍停留在发起加载的分P
+            var part = loaded?.FirstOrDefault(p => p.PartNumber == requestedPartNumber);
+            _aiParagraphs = part?.Paragraphs ?? [];
+            AiReadStatus = part != null
+                ? $"✅ 已整理 · {part.Paragraphs.Count} 个段落"
+                : string.Empty;
+            AiReadError = false;
+            AiReadErrorMessage = string.Empty;
+            App.Log($"AI 阅读数据缓存已加载: bvId={bvId}, part={requestedPartNumber}, "
+                    + $"{(part != null ? $"{part.Paragraphs.Count} 段" : "无缓存")}");
+        }
+        else
+        {
+            // 加载期间用户切到了其它分P，重新加载当前分P 展示
+            App.Log($"AI 阅读数据缓存已加载: bvId={bvId}（期间已切换分P，刷新当前分P）");
+            LoadAiReadForSelectedPart();
+        }
+
         OnPropertyChanged(nameof(AiParagraphs));
         OnPropertyChanged(nameof(HasAiParagraphs));
         OnPropertyChanged(nameof(ShowAiReadEmptyCard));
@@ -756,6 +848,12 @@ public class MainViewModel : ViewModelBase
                         // 仅当前选中的分P 才刷新 UI（在 UI 线程内校验，避免切分P 竞态串台）
                         ui.Invoke(() =>
                         {
+                            // 无论当前选中哪个分P，都更新内存缓存（经 UI 线程调度，与 LoadAiRead 同线程避免竞态）
+                            _readPartsCache ??= new();
+                            _readPartsCacheLoaded = true;
+                            _readPartsCache.RemoveAll(p => p.PartNumber == partNumber);
+                            _readPartsCache.Add(partData);
+
                             if (SelectedPart?.PartNumber != partNumber)
                                 return;
                             _aiParagraphs = paragraphs;
@@ -825,41 +923,33 @@ public class MainViewModel : ViewModelBase
     {
         if (SelectedPart == null)
         {
-            FilteredEntries.Clear();
+            FilteredEntries = new ObservableCollection<SubtitleEntry>();
             OnPropertyChanged(nameof(FilteredCount));
             return;
         }
 
         var source = SelectedPart.Entries;
 
+        // 整体替换集合（而非逐条 Clear/Add）：切换分P / 搜索时只触发一次 CollectionChanged，
+        // ListBox 虚拟化下一次重建，避免几千条字幕的通知风暴卡顿 UI（曾导致切换分P 卡约 1 秒）。
+        // 注意：ObservableCollection 不实现 ISupportInitialize，不能强转批量更新；
+        // 虚拟化由 XAML 侧 ScrollViewer.CanContentScroll + VirtualizingPanel 四件套承担，
+        // 集合整体替换后 ListBox 只实例化可见容器，不会全量渲染。
         if (string.IsNullOrWhiteSpace(SearchText))
         {
-            // 无搜索时直接复用源集合引用，不产生任何 Add 开销
-            if (FilteredEntries.Count == source.Count)
-            {
-                bool same = true;
-                for (int i = 0; i < source.Count && same; i++)
-                    if (FilteredEntries[i] != source[i])
-                        same = false;
-                if (same)
-                {
-                    OnPropertyChanged(nameof(FilteredCount));
-                    return;
-                }
-            }
-            FilteredEntries.Clear();
-            for (int i = 0; i < source.Count; i++)
-                FilteredEntries.Add(source[i]);
+            // 无搜索时直接拷贝源集合一次（零逐条通知；源集合一次枚举即可）
+            FilteredEntries = new ObservableCollection<SubtitleEntry>(source);
         }
         else
         {
             var keyword = SearchText.Trim();
-            FilteredEntries.Clear();
+            var filtered = new List<SubtitleEntry>();
             foreach (var e in source)
             {
                 if (e.Text.IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0)
-                    FilteredEntries.Add(e);
+                    filtered.Add(e);
             }
+            FilteredEntries = new ObservableCollection<SubtitleEntry>(filtered);
         }
 
         OnPropertyChanged(nameof(FilteredCount));

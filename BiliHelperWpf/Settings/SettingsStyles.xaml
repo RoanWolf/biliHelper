@@ -82,11 +82,6 @@
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="CornerRadius" Value="10" />
         <Setter Property="SnapsToDevicePixels" Value="True" />
-        <Setter Property="Effect">
-            <Setter.Value>
-                <DropShadowEffect BlurRadius="22" ShadowDepth="0" Opacity="0.06" Color="#1F2329" />
-            </Setter.Value>
-        </Setter>
     </Style>
 
     <!-- ═══════════════════════════════════════════════════════════
@@ -105,30 +100,14 @@
                             Padding="12,10"
                             Margin="0,2"
                             SnapsToDevicePixels="True">
-                        <Grid>
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="Auto" />
-                                <ColumnDefinition Width="*" />
-                            </Grid.ColumnDefinitions>
-                            <Border x:Name="Indicator"
-                                    Grid.Column="0"
-                                    Width="3" Height="16"
-                                    CornerRadius="1.5"
-                                    Background="{DynamicResource AccentFillColorDefaultBrush}"
-                                    VerticalAlignment="Center"
-                                    Margin="0,0,10,0"
-                                    Visibility="Collapsed" />
-                            <ContentPresenter Grid.Column="1" VerticalAlignment="Center" />
-                        </Grid>
+                        <ContentPresenter VerticalAlignment="Center" />
                     </Border>
                     <ControlTemplate.Triggers>
                         <Trigger Property="IsMouseOver" Value="True">
                             <Setter TargetName="Bd" Property="Background" Value="{DynamicResource ControlFillColorSecondaryBrush}" />
                         </Trigger>
                         <Trigger Property="IsChecked" Value="True">
-                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource AccentFillColorDefaultBrush}" />
-                            <Setter TargetName="Indicator" Property="Background" Value="{DynamicResource TextOnAccentFillColorPrimaryBrush}" />
-                            <Setter TargetName="Indicator" Property="Visibility" Value="Visible" />
+                            <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SubtleFillColorSecondaryBrush}" />
                         </Trigger>
                     </ControlTemplate.Triggers>
                 </ControlTemplate>
@@ -144,8 +123,7 @@
         <Style.Triggers>
             <DataTrigger Binding="{Binding IsChecked, RelativeSource={RelativeSource AncestorType=RadioButton}}"
                          Value="True">
-                <Setter Property="Foreground" Value="{DynamicResource TextOnAccentFillColorPrimaryBrush}" />
-                <Setter Property="FontWeight" Value="SemiBold" />
+                <Setter Property="Foreground" Value="{DynamicResource AccentFillColorDefaultBrush}" />
             </DataTrigger>
         </Style.Triggers>
     </Style>

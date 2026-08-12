@@ -4,6 +4,8 @@
         xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
         Title="设置"
         Width="880" Height="620"
+        MinWidth="880" MaxWidth="880"
+        MinHeight="620" MaxHeight="620"
         WindowStartupLocation="CenterOwner"
         ExtendsContentIntoTitleBar="True"
         ResizeMode="NoResize"
@@ -31,16 +33,21 @@
             BorderThickness="1">
     <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="48" />  <!-- WPF-UI TitleBar（默认 48px 高） -->
+            <RowDefinition Height="32" />  <!-- WPF-UI TitleBar（压到 32px，消除按钮下方空白带） -->
             <RowDefinition Height="*" />   <!-- 主体 -->
         </Grid.RowDefinitions>
 
         <!-- ═══ WPF-UI 标题栏（自动拖拽/双击最大化/窗口按钮，主题感知） ═══ -->
         <ui:TitleBar Grid.Row="0"
+                     Height="32"
+                     Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
                      Title="设置"
+                     ShowMaximize="False"
+                     ShowMinimize="False"
                      CloseWindowByDoubleClickOnIcon="True">
             <ui:TitleBar.Icon>
-                <ui:ImageIcon Source="pack://application:,,,/Assets/logo.png" />
+                <ui:ImageIcon Source="pack://application:,,,/Assets/logo.png"
+                              Width="12" Height="12" />
             </ui:TitleBar.Icon>
         </ui:TitleBar>
 

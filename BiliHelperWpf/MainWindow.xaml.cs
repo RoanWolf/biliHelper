@@ -5,6 +5,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using System.Windows.Shapes;
+using System.Windows.Threading;
 using BiliHelperWpf.ViewModels;
 
 namespace BiliHelperWpf;
@@ -38,11 +39,20 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
                 });
             }
 
-            // 历史抽屉打开时播放滑入动画
+            // 历史抽屉打开/关闭：播放滑入动画 + 用 IsHitTestVisible=false 解除 TitleBar 的
+            // WM_NCHITTEST → HTCAPTION 拖动劫持（WPF-UI 的 IsMouseOverElement 会检查
+            // IsHitTestVisible，设为 false 后劫持失效，抽屉右上角 ✕ 可正常点击）；
+            // 同时隐藏窗口按钮。TitleBar 保持 Visible 不折叠、不做位置变更 → 点击抽屉 ✕
+            // 关闭时鼠标下方不会凭空出现窗口按钮，杜绝误触退出。
             if (e.PropertyName == nameof(MainViewModel.IsHistoryOpen))
             {
                 Dispatcher.BeginInvoke(() =>
                 {
+                    MainWindowTitleBar.IsHitTestVisible = !_vm.IsHistoryOpen;
+                    MainWindowTitleBar.ShowClose = !_vm.IsHistoryOpen;
+                    MainWindowTitleBar.ShowMaximize = !_vm.IsHistoryOpen;
+                    MainWindowTitleBar.ShowMinimize = !_vm.IsHistoryOpen;
+
                     if (HistoryDrawer?.RenderTransform is TranslateTransform tt)
                     {
                         if (_vm.IsHistoryOpen)
@@ -67,6 +77,8 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
             }
 
         };
+
+
     }
 
     protected override async void OnContentRendered(EventArgs e)
@@ -76,7 +88,10 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
         bool valid = await _vm.RefreshCookieStatusAsync();
         if (!valid)
             OpenSettingsWindow(0);
+
     }
+
+
 
     /// <summary>
     /// 点击遮罩关闭历史抽屉（仅当点击的是遮罩本身，不是子元素）。
