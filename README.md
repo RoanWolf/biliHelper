@@ -46,19 +46,15 @@ biliHelper/
 │   │   ├── BoolToVisibilityConverter.cs
 │   │   ├── NullToVisibilityConverter.cs
 │   │   └── StatusToColorConverter.cs
-│   ├── Themes/                    多主题（浅 / 深色）
-│   │   ├── Light.xaml             浅色主题（34 个画刷，运行时可切换）
-│   │   ├── Dark.xaml              深色主题（与 Light 同 key）
-│   │   └── ScrollBar.xaml         通用细滚动条（颜色随主题）
-│   ├── ThemeManager.cs             主题切换 / 持久化（%LocalAppData%\BiliHelper\theme.txt）
-│   ├── SettingsWindow.xaml(.cs)    设置中心（分组导航：服务/个性化，RadioButton 主色药丸选中态；固定大小、圆角 + 外圈边框与主窗口区分）
+│   ├── ThemeManager.cs             主题切换薄封装（内部调用 WPF-UI ApplicationThemeManager；持久化 %LocalAppData%\BiliHelper\theme.txt）
+│   ├── SettingsWindow.xaml(.cs)    设置中心（分组导航：服务/个性化，RadioButton 主色药丸选中态；FluentWindow 固定大小、圆角 + 外圈边框与主窗口区分）
 │   ├── Settings/
-│   │   ├── SettingsStyles.xaml     共享样式（页面标题/分组标题/卡片/按钮/输入框/导航药丸/主题选择卡，FontSize 由顶部统一控制）
+│   │   ├── SettingsStyles.xaml     共享样式（10 个：页面标题/分组标题/卡片/导航药丸/主题选择卡，FontSize 由顶部统一控制）
 │   │   ├── AccountPanel.xaml(.cs)  账号面板：内嵌扫码登录（互斥串行防并发写）+ 欢迎卡片（头像/昵称/UID）+ 退出
 │   │   ├── AiModelPanel.xaml(.cs)  AI 大模型连接面板（API Key / Base URL / 模型，测试/保存按钮在标题行右上角，测试结果内联卡片）
 │   │   └── AppearancePanel.xaml(.cs) 主题选择面板（左右并排 + 迷你预览 + 右上角单选圈）
-│   ├── MainWindow.xaml             主界面（标题栏无 cookie/设置按钮；URL 工具行含「⚙️ 配置」入口，颜色走 DynamicResource）
-│   ├── MainWindow.xaml.cs          窗口隐藏（含 DWM 圆角、设置中心开关）
+│   ├── MainWindow.xaml             主界面（FluentWindow + WPF-UI；标题栏无 cookie/设置按钮；URL 工具行含「⚙️ 配置」入口，颜色走 DynamicResource）
+│   ├── MainWindow.xaml.cs          窗口隐藏、设置中心开关（DWM 圆角由 FluentWindow 接管）
 │   ├── WpfHelper.cs                可视化树工具方法
 │   └── history/                    本地历史记录（用户数据，gitignore）
 │
@@ -274,18 +270,19 @@ AccountPanel.LoadUserInfoAsync()   （已登录时展示欢迎卡片）
 
 WPF 端支持浅色 / 深色两种主题，运行时可在设置中心「外观」面板切换（标题栏 ☀️/🌙 按钮已随扫码登录合并移除），选择持久化到 `%LocalAppData%\BiliHelper\theme.txt`，下次启动自动恢复。
 
-### 结构
+### 结构（WPF-UI 接管，自研主题已移除）
 
-- `Themes/Light.xaml`、`Themes/Dark.xaml`：两套**相同 key** 的 `SolidColorBrush`（各 34 个）。key 保持一致是主题切换的前提——替换字典后所有 `DynamicResource` 同时刷新。
-- `Themes/ScrollBar.xaml`：自定义细滚动条（8px、圆角 thumb），颜色通过 `DynamicResource` 随主题切换，与浅/深共用。
-- `ThemeManager.cs`：切换时用正则 `Light\.xaml$|Dark\.xaml$` 定位**主题字典**并替换其 `Source`（不会误改共享的 ScrollBar 字典），从而触发全部 `DynamicResource` 刷新。
+- 主题资源由 **WPF-UI 4.3.0** 提供：`App.xaml` 加载 `<ui:ThemesDictionary Theme="Light"/>` + `<ui:ControlsDictionary/>`；切换时 `ApplicationThemeManager.Apply(theme, WindowBackdropType.None, updateAccent: true)` 替换主题字典并同步注入 accent 颜色资源。
+- `ThemeManager.cs`：**薄封装**——对外 API（`IsDark` / `ApplyDark` / `Toggle` / `LoadPersisted`）不变，内部调用 WPF-UI；持久化仍写入 `%LocalAppData%\BiliHelper\theme.txt`。
+- 自研 `Themes/` 目录（Light/Dark/ScrollBar，34 画刷）与 `ThemeManager` 的字典替换逻辑**已整体移除**；控件指针仅保留 `{DynamicResource WPF-UI key}`（如 `TextFillColorPrimaryBrush` / `CardBackgroundFillColorDefaultBrush` / `SystemFillColorCriticalBrush`）。
+- 窗口框架：主窗口与设置中心均为 `FluentWindow`（Mica / 圆角 / 原生标题栏由库接管）。
 
 ### 关键约定（勿破坏）
 
 - **主界面颜色一律用 `DynamicResource`**（主题切换时即时刷新）。
 - `Binding.Converter` 属性不是依赖属性，**不能**用 `DynamicResource`，因此 `BoolToVis` / `InverseBoolToVis` / `NullToVis` / `StatusToColor` 这类 converter 引用必须用 `StaticResource`（定义在 `Window.Resources` 内）。
-- 事件色转换器（`StatusToColorConverter`）通过 `Application.Current.TryFindResource` 运行时取色，因此能随主题变化。
-- `ScrollBar.xaml` 中被引用的 `x:Key` 样式必须声明在隐式样式**之前**（`StaticResource` 只能向前解析）。
+- 事件色转换器（`StatusToColorConverter`）通过 `Application.Current.TryFindResource` 运行时取色（key 已改为 WPF-UI 的 `SystemFillColorSuccessBrush` / `SystemFillColorAttentionBrush` / `SystemFillColorNeutralBrush`），因此能随主题变化。
+- **accent 系资源（`AccentFillColorDefaultBrush` / `SystemFillColorAttentionBrush` 等）由 `ApplicationAccentColorManager` 在调用 `Apply(..., updateAccent: true)` 时运行时注入**——`ThemeManager` 必须保持 `updateAccent: true`，否则这些 key 缺失。
 
 ---
 
@@ -295,7 +292,8 @@ WPF 设置中心（⚙️ `SettingsWindow`）是唯一的配置入口：账号�
 
 ### 布局
 
-- 标题栏与主窗口统一为 **32px** 高，只保留「设置」标题 + 关闭按钮（无 logo / 应用名），整窗不可拉伸。
+- `FluentWindow` 固定 880×620（`ResizeMode=NoResize`），圆角 + 外圈边框与主窗口区分。
+- 标题栏为 WPF-UI `TitleBar`（**48px** 高，默认值），只保留「设置」标题 + logo + 窗口按钮（最小化/最大化/关闭），整窗不可拉伸。
 - 左侧**分组导航**（`RadioButton` 主色药丸选中态，无 icon）：
   - **服务**：获取cookie、AI模型
   - **个性化**：外观
@@ -337,7 +335,7 @@ WPF 设置中心（⚙️ `SettingsWindow`）是唯一的配置入口：账号�
 | AI 调用 | openai (DeepSeek 兼容接口) | ≥ 2.53.0 |
 | B 站登录 | requests + qrcode + pillow | — |
 | 桌面框架 | .NET WPF | net10.0-windows |
-| 核心依赖 | 零 NuGet 包 | 纯 .NET 原生 |
+| UI 库 | WPF-UI | 4.3.0（含 WPF-UI.Abstractions；替换原自研主题与控件样式） |
 
 ---
 
