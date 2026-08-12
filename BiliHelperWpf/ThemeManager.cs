@@ -1,45 +1,47 @@
 using System;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
-using System.Text.RegularExpressions;
-using System.Windows;
+using Wpf.Ui.Appearance;
+using Wpf.Ui.Controls;
 
 namespace BiliHelperWpf;
 
 /// <summary>
 /// 管理主题（浅色 / 深色）切换。
-/// 通过在运行时替换 App 级合并字典的 Source，触发所有 DynamicResource 刷新。
+///
+/// 内部改用 WPF-UI 的 <see cref="ApplicationThemeManager"/> 切换主题资源字典
+/// （自研 Themes/ 目录与 34 画刷体系已在 WPF-UI 迁移中移除）。
+/// 持久化仍写入 %LocalAppData%\BiliHelper\theme.txt（作为唯一权威，启动恢复）。
+///
+/// 外部调用点 API 不变：App.OnStartup → LoadPersisted()，AppearancePanel → IsDark / ApplyDark。
 /// </summary>
 public static class ThemeManager
 {
-    public const string LightThemeUri = "Themes/Light.xaml";
-    public const string DarkThemeUri = "Themes/Dark.xaml";
-
-    public static bool IsDark { get; private set; }
-
     /// <summary>
-    /// 切换主题并持久化选择。
+    /// 当前是否为深色主题（从 WPF-UI 当前应用主题派生）。
     /// </summary>
-    public static void Toggle()
-    {
-        ApplyDark(!IsDark);
-    }
+    public static bool IsDark =>
+        ApplicationThemeManager.GetAppTheme() == ApplicationTheme.Dark;
 
     /// <summary>
-    /// 应用指定主题（true=深色）。
+    /// 切换主题（浅 <-> 深）并持久化选择。
+    /// </summary>
+    public static void Toggle() => ApplyDark(!IsDark);
+
+    /// <summary>
+    /// 应用指定主题（true=深色），并持久化选择。
     /// </summary>
     public static void ApplyDark(bool dark)
     {
-        if (dark == IsDark)
+        // 主题一致时跳过重复 apply，仅保存选择（与旧实现行为一致）
+        if (dark == IsDark &&
+            ApplicationThemeManager.GetAppTheme() != ApplicationTheme.Unknown)
         {
-            // 首次启动 IsDark=false 而实际是 Light，跳过 apply，仅保存选择
             Persistence.Save(dark);
             return;
         }
 
-        IsDark = dark;
-        ReplaceTheme(dark ? DarkThemeUri : LightThemeUri);
+        Apply(dark);
         Persistence.Save(dark);
     }
 
@@ -49,39 +51,36 @@ public static class ThemeManager
     public static void LoadPersisted()
     {
         bool saved = Persistence.TryGetDark();
-        if (saved != IsDark)
-        {
-            IsDark = saved;
-            ReplaceTheme(saved ? DarkThemeUri : LightThemeUri);
-        }
+        if (saved == IsDark &&
+            ApplicationThemeManager.GetAppTheme() != ApplicationTheme.Unknown)
+            return;
+
+        Apply(saved);
     }
 
-    private static void ReplaceTheme(string uri)
+    /// <summary>
+    /// 通过 WPF-UI 切换主题资源字典。
+    /// </summary>
+    /// <param name="dark">true=深色，false=浅色。</param>
+    /// <remarks>
+    /// backdrop 固定传 <see cref="WindowBackdropType.None"/>：Phase 2 启用 Mica 时
+    /// 再改为对应 backdrop（届时需配合 FluentWindow 的 ExtendsContentIntoTitleBar=True）。
+    /// updateAccent=true：让 WPF-UI 同步更新 accent 颜色资源（跟随系统强调色）。
+    /// </remarks>
+    private static void Apply(bool dark)
     {
         try
         {
-            if (Application.Current?.Resources is not { } res)
-                return;
+            ApplicationThemeManager.Apply(
+                dark ? ApplicationTheme.Dark : ApplicationTheme.Light,
+                WindowBackdropType.None,
+                updateAccent: true);
 
-            var theme = res.MergedDictionaries;
-            // 定位"主题字典"：Source 文件名恰好是 Light.xaml / Dark.xaml 的那一个。
-            // 不能用 /Themes/ 结尾或 index[0] 判断（MergedDictionaries 里还有 ScrollBar.xaml 等共享字典）。
-            var target = theme.FirstOrDefault(d
-                => d.Source is { } src
-                && Regex.IsMatch(src.OriginalString, @"Light\.xaml$|Dark\.xaml$", RegexOptions.IgnoreCase));
-
-            if (target == null)
-            {
-                // 主题字典缺失（异常场景）：直接新增，避免误改共享字典。
-                theme.Add(new ResourceDictionary { Source = new Uri(uri, UriKind.Relative) });
-            }
-            else
-            {
-                target.Source = new Uri(uri, UriKind.Relative);
-            }
+            Debug.WriteLine($"[ThemeManager] 主题已切换为 {(dark ? "深色" : "浅色")}");
         }
         catch (Exception ex)
         {
+            // 主题切换失败不崩溃，保留日志便于排查
             Debug.WriteLine($"[ThemeManager] 主题切换失败: {ex}");
         }
     }
@@ -107,16 +106,28 @@ public static class ThemeManager
             try
             {
                 if (File.Exists(FilePath))
-                    return string.Equals(File.ReadAllText(FilePath).Trim(), "dark", StringComparison.OrdinalIgnoreCase);
+                    return string.Equals(
+                        File.ReadAllText(FilePath).Trim(),
+                        "dark",
+                        StringComparison.OrdinalIgnoreCase);
             }
-            catch { }
+            catch
+            {
+                // 读取失败按浅色处理
+            }
             return false;
         }
 
         public static void Save(bool dark)
         {
-            try { File.WriteAllText(FilePath, dark ? "dark" : "light"); }
-            catch { }
+            try
+            {
+                File.WriteAllText(FilePath, dark ? "dark" : "light");
+            }
+            catch
+            {
+                // 写入失败忽略（不阻塞主题切换）
+            }
         }
     }
 }

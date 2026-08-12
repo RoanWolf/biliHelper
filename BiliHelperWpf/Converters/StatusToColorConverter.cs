@@ -9,7 +9,7 @@ namespace BiliHelperWpf.Converters;
 /// <summary>
 /// 将 status 字符串 ("ok", "partial", "empty") 映射为颜色画刷。
 /// 从当前主题资源字典查找画刷，随主题（浅/深）切换而变化。
-/// ok → SuccessBrush, partial → RunningBrush, empty → WaitingBrush。
+/// ok → SystemFillColorSuccessBrush, partial → SystemFillColorAttentionBrush, empty → SystemFillColorNeutralBrush。
 /// </summary>
 public class StatusToColorConverter : IValueConverter
 {
@@ -20,9 +20,9 @@ public class StatusToColorConverter : IValueConverter
     {
         var key = value switch
         {
-            string s when s.Equals("ok", StringComparison.OrdinalIgnoreCase) => "SuccessBrush",
-            string s when s.Equals("partial", StringComparison.OrdinalIgnoreCase) => "RunningBrush",
-            string s when s.Equals("empty", StringComparison.OrdinalIgnoreCase) => "WaitingBrush",
+            string s when s.Equals("ok", StringComparison.OrdinalIgnoreCase) => "SystemFillColorSuccessBrush",
+            string s when s.Equals("partial", StringComparison.OrdinalIgnoreCase) => "SystemFillColorAttentionBrush",
+            string s when s.Equals("empty", StringComparison.OrdinalIgnoreCase) => "SystemFillColorNeutralBrush",
             _ => null,
         };
 

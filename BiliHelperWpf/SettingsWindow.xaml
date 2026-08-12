@@ -1,25 +1,19 @@
-<Window x:Class="BiliHelperWpf.SettingsWindow"
+<ui:FluentWindow x:Class="BiliHelperWpf.SettingsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
         Title="设置"
         Width="880" Height="620"
         WindowStartupLocation="CenterOwner"
-        WindowStyle="None"
+        ExtendsContentIntoTitleBar="True"
         ResizeMode="NoResize"
-        Background="{DynamicResource BackgroundBrush}"
+        Background="{DynamicResource ApplicationBackgroundBrush}"
         FontFamily="pack://application:,,,/BiliHelperWpf;component/Assets/#Lilex Duo, Microsoft YaHei, PingFang SC, sans-serif"
         FontSize="14"
-        Foreground="{DynamicResource TextPrimaryBrush}"
+        Foreground="{DynamicResource TextFillColorPrimaryBrush}"
         UseLayoutRounding="True"
         SnapsToDevicePixels="True"
         ShowInTaskbar="False">
-    <shell:WindowChrome.WindowChrome>
-        <shell:WindowChrome CaptionHeight="32"
-                            CornerRadius="10"
-                            GlassFrameThickness="0"
-                            UseAeroCaptionButtons="False" />
-    </shell:WindowChrome.WindowChrome>
 
     <Window.Resources>
         <ResourceDictionary>
@@ -27,82 +21,28 @@
                 <ResourceDictionary Source="Settings/SettingsStyles.xaml" />
             </ResourceDictionary.MergedDictionaries>
 
-            <!-- 标题栏关闭按钮 -->
-            <Style x:Key="SettingsCloseButtonStyle" TargetType="Button">
-                <Setter Property="Width" Value="46" />
-                <Setter Property="Height" Value="32" />
-                <Setter Property="Background" Value="Transparent" />
-                <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
-                <Setter Property="BorderThickness" Value="0" />
-                <Setter Property="Cursor" Value="Hand" />
-                <Setter Property="Template">
-                    <Setter.Value>
-                        <ControlTemplate TargetType="Button">
-                            <Border x:Name="Bd" Background="{TemplateBinding Background}">
-                                <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
-                            </Border>
-                            <ControlTemplate.Triggers>
-                                <Trigger Property="IsMouseOver" Value="True">
-                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource CloseButtonHoverBrush}" />
-                                    <Setter Property="Foreground" Value="White" />
-                                </Trigger>
-                                <Trigger Property="IsPressed" Value="True">
-                                    <Setter TargetName="Bd" Property="Background" Value="{DynamicResource CloseButtonPressedBrush}" />
-                                    <Setter Property="Foreground" Value="White" />
-                                </Trigger>
-                            </ControlTemplate.Triggers>
-                        </ControlTemplate>
-                    </Setter.Value>
-                </Setter>
-            </Style>
         </ResourceDictionary>
     </Window.Resources>
 
     <!-- 内容根：圆角框，带边框色（与主界面区分） -->
     <Border CornerRadius="10"
-            Background="{DynamicResource BackgroundBrush}"
-            BorderBrush="{DynamicResource ButtonBorderBrush}"
+            Background="{DynamicResource ApplicationBackgroundBrush}"
+            BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
             BorderThickness="1">
     <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="32" />  <!-- 标题栏（WindowChrome 拖拽区） -->
+            <RowDefinition Height="48" />  <!-- WPF-UI TitleBar（默认 48px 高） -->
             <RowDefinition Height="*" />   <!-- 主体 -->
         </Grid.RowDefinitions>
 
-        <!-- ═══ 标题栏：Logo + 标题，融入背景，底部细线分隔 ═══ -->
-        <Border Grid.Row="0"
-                BorderBrush="{DynamicResource BorderBrush}"
-                BorderThickness="0,0,0,1">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="46" />
-                </Grid.ColumnDefinitions>
-
-                <!-- 标题（整条可拖拽，无需 IsHitTestVisibleInChrome） -->
-                <StackPanel Grid.Column="0"
-                            Orientation="Horizontal"
-                            VerticalAlignment="Center"
-                            Margin="10,0,0,0">
-                    <TextBlock Text="设置"
-                               FontSize="13" FontWeight="SemiBold"
-                               Foreground="{DynamicResource TextPrimaryBrush}"
-                               VerticalAlignment="Center" />
-                </StackPanel>
-
-                <Button Grid.Column="1"
-                        x:Name="CloseButton"
-                        Style="{StaticResource SettingsCloseButtonStyle}"
-                        shell:WindowChrome.IsHitTestVisibleInChrome="True"
-                        Click="CloseButton_Click">
-                    <Path Data="M0,0 L10,10 M10,0 L0,10"
-                          Stroke="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
-                          StrokeThickness="1.2"
-                          VerticalAlignment="Center"
-                          HorizontalAlignment="Center" />
-                </Button>
-            </Grid>
-        </Border>
+        <!-- ═══ WPF-UI 标题栏（自动拖拽/双击最大化/窗口按钮，主题感知） ═══ -->
+        <ui:TitleBar Grid.Row="0"
+                     Title="设置"
+                     CloseWindowByDoubleClickOnIcon="True">
+            <ui:TitleBar.Icon>
+                <ui:ImageIcon Source="pack://application:,,,/Assets/logo.png" />
+            </ui:TitleBar.Icon>
+        </ui:TitleBar>
 
         <!-- ═══ 主体：左侧分组导航 + 右侧内容 ═══ -->
         <Grid Grid.Row="1">
@@ -114,14 +54,14 @@
 
             <!-- ─── 左侧导航（分组 + 底部版本信息） ─── -->
             <Border Grid.Column="0"
-                    Background="{DynamicResource SurfaceHoverBrush}"
+                    Background="{DynamicResource ControlFillColorSecondaryBrush}"
                     CornerRadius="0,0,0,10">
                 <Grid>
                     <StackPanel Margin="16,18,12,8">
                         <!-- 服务 -->
                         <ContentControl Content="服务"
                                         FontSize="12" FontWeight="SemiBold"
-                                        Foreground="{DynamicResource TextSecondaryBrush}"
+                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                         Style="{StaticResource FluentGroupTitleStyle}" />
 
                         <RadioButton x:Name="NavAccount"
@@ -143,7 +83,7 @@
                         <!-- 个性化 -->
                         <ContentControl Content="个性化"
                                         FontSize="12" FontWeight="SemiBold"
-                                        Foreground="{DynamicResource TextSecondaryBrush}"
+                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                         Style="{StaticResource FluentGroupTitleStyle}"
                                         Margin="0,18,0,0" />
 
@@ -161,13 +101,13 @@
                         <Border Style="{StaticResource FluentDividerStyle}" Margin="0,0,8,12" />
                         <TextBlock Text="BiliHelper v1.0.0"
                                    FontSize="12"
-                                   Foreground="{DynamicResource TextMutedBrush}" />
+                                   Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
                     </StackPanel>
                 </Grid>
             </Border>
 
             <!-- 导航 / 内容 分隔线 -->
-            <Border Grid.Column="1" Background="{DynamicResource BorderBrush}" />
+            <Border Grid.Column="1" Background="{DynamicResource ControlStrokeColorDefaultBrush}" />
 
             <!-- ─── 右侧内容区 ─── -->
             <Grid Grid.Column="2">
@@ -176,4 +116,4 @@
         </Grid>
     </Grid>
     </Border>
-</Window>
+</ui:FluentWindow>

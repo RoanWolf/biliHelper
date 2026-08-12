@@ -54,7 +54,7 @@
                                         <TextBlock Text="浅色" FontSize="14" FontWeight="SemiBold" />
                                         <TextBlock Text="明亮通透的白天配色"
                                                    FontSize="12"
-                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                                    Margin="0,2,0,0" />
                                     </StackPanel>
                                 </StackPanel>
@@ -131,7 +131,7 @@
                                         <TextBlock Text="深色" FontSize="14" FontWeight="SemiBold" />
                                         <TextBlock Text="夜间使用更护眼的暗色配色"
                                                    FontSize="12"
-                                                   Foreground="{DynamicResource TextSecondaryBrush}"
+                                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                                    Margin="0,2,0,0" />
                                     </StackPanel>
                                 </StackPanel>

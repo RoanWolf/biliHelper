@@ -1,194 +1,41 @@
-﻿<Window x:Class="BiliHelperWpf.MainWindow"
+﻿<ui:FluentWindow x:Class="BiliHelperWpf.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:conv="clr-namespace:BiliHelperWpf.Converters"
-        xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+        xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
         mc:Ignorable="d"
         Title="BiliHelper"
         Height="800" Width="1200"
         MinHeight="500" MinWidth="800"
         WindowStartupLocation="CenterScreen"
-        WindowStyle="None"
+        ExtendsContentIntoTitleBar="True"
         ResizeMode="CanResizeWithGrip"
-        Background="{DynamicResource BackgroundBrush}"
+        WindowBackdropType="Mica"
+        Background="{DynamicResource ApplicationBackgroundBrush}"
         FontFamily="pack://application:,,,/BiliHelperWpf;component/Assets/#Lilex Duo, Microsoft YaHei, PingFang SC, sans-serif"
         FontSize="14"
-        Foreground="{DynamicResource TextPrimaryBrush}"
+        Foreground="{DynamicResource TextFillColorPrimaryBrush}"
         UseLayoutRounding="True">
-    <shell:WindowChrome.WindowChrome>
-        <shell:WindowChrome CaptionHeight="32"
-                            ResizeBorderThickness="4"
-                            CornerRadius="0"
-                            GlassFrameThickness="0"
-                            UseAeroCaptionButtons="False" />
-    </shell:WindowChrome.WindowChrome>
-
     <Window.Resources>
         <conv:BoolToVisibilityConverter x:Key="BoolToVis" />
         <conv:BoolToVisibilityConverter x:Key="InverseBoolToVis" Inverted="True" />
         <conv:NullToVisibilityConverter x:Key="NullToVis" />
         <conv:StatusToColorConverter x:Key="StatusToColor" />
 
-        <!-- 标题栏按钮样式 -->
-        <Style x:Key="TitleBarButtonStyle" TargetType="Button">
-            <Setter Property="Width" Value="46" />
-            <Setter Property="Height" Value="32" />
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="Bd" Background="{TemplateBinding Background}">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
-                            </Trigger>
-                            <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource TitleBarPressedBrush}" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
 
-        <!-- 关闭按钮样式 -->
-        <Style x:Key="CloseButtonStyle" TargetType="Button">
-            <Setter Property="Width" Value="46" />
-            <Setter Property="Height" Value="32" />
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="Bd" Background="{TemplateBinding Background}">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource CloseButtonHoverBrush}" />
-                                <Setter Property="Foreground" Value="White" />
-                            </Trigger>
-                            <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource CloseButtonPressedBrush}" />
-                                <Setter Property="Foreground" Value="White" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
 
-        <!-- 分P列表项样式 -->
-        <Style x:Key="PartItemStyle" TargetType="ListBoxItem">
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="Padding" Value="14,10" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="ListBoxItem">
-                        <Border x:Name="Bd"
-                                Background="{TemplateBinding Background}"
-                                BorderThickness="0"
-                                Padding="{TemplateBinding Padding}"
-                                SnapsToDevicePixels="True">
-                            <ContentPresenter />
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
-                            </Trigger>
-                            <Trigger Property="IsSelected" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SurfaceSelectedBrush}" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
 
-        <!-- 字幕条目样式 -->
-        <Style x:Key="SubItemStyle" TargetType="ListBoxItem">
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="Padding" Value="10,7" />
-            <Setter Property="BorderThickness" Value="0,0,0,1" />
-            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrush}" />
-            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="ListBoxItem">
-                        <Border x:Name="Bd"
-                                Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}"
-                                Padding="{TemplateBinding Padding}"
-                                SnapsToDevicePixels="True">
-                            <ContentPresenter />
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
-                            </Trigger>
-                            <Trigger Property="IsSelected" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SurfaceSelectedBrush}" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
 
-        <!-- 次按钮样式 -->
-        <Style x:Key="SecondaryButtonStyle" TargetType="Button">
-            <Setter Property="Background" Value="{DynamicResource SurfaceBrush}" />
-            <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource ButtonBorderBrush}" />
-            <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="Padding" Value="16,0" />
-            <Setter Property="Cursor" Value="Hand" />
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border x:Name="Bd"
-                                Background="{TemplateBinding Background}"
-                                BorderBrush="{TemplateBinding BorderBrush}"
-                                BorderThickness="{TemplateBinding BorderThickness}"
-                                CornerRadius="6"
-                                Padding="{TemplateBinding Padding}"
-                                SnapsToDevicePixels="True">
-                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <Trigger Property="IsMouseOver" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
-                            </Trigger>
-                            <Trigger Property="IsPressed" Value="True">
-                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource ButtonPressedBrush}" />
-                            </Trigger>
-                            <Trigger Property="IsEnabled" Value="False">
-                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SurfaceBrush}" />
-                                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource ButtonBorderBrush}" />
-                                <Setter Property="Foreground" Value="{DynamicResource ButtonDisabledForegroundBrush}" />
-                            </Trigger>
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
+
+
+
     </Window.Resources>
 
     <Grid>
         <Grid.RowDefinitions>
-            <RowDefinition Height="32" />    <!-- 自定义标题栏 -->
+            <RowDefinition Height="48" />    <!-- WPF-UI TitleBar（默认 48px 高） -->
             <RowDefinition Height="Auto" />  <!-- URL 输入行 -->
             <RowDefinition Height="Auto" />  <!-- 进度 -->
             <RowDefinition Height="Auto" />  <!-- 错误 -->
@@ -197,101 +44,18 @@
             <RowDefinition Height="Auto" />  <!-- 底栏 -->
         </Grid.RowDefinitions>
 
-        <!-- ═══ 自定义标题栏 ═══ -->
-        <Border Grid.Row="0"
-                Background="{DynamicResource SurfaceBrush}"
-                BorderBrush="{DynamicResource BorderBrush}"
-                BorderThickness="0,0,0,1"
-                x:Name="TitleBar"
-                MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="46" />
-                    <ColumnDefinition Width="46" />
-                    <ColumnDefinition Width="46" />
-                </Grid.ColumnDefinitions>
-
-                <!-- 标题（拖动区域） -->
-                <StackPanel Grid.Column="0" Orientation="Horizontal"
-                            VerticalAlignment="Center"
-                            Margin="10,0,0,0"
-                            shell:WindowChrome.IsHitTestVisibleInChrome="False">
-                    <Image Source="Assets/logo.png"
-                           Width="20" Height="20"
-                           VerticalAlignment="Center"
-                           Margin="0,0,8,0" />
-                    <TextBlock Text="BiliHelper"
-                               FontSize="13" FontWeight="SemiBold"
-                               Foreground="{DynamicResource PrimaryBrush}"
-                               VerticalAlignment="Center" />
-                    <Ellipse Width="4" Height="4"
-                             Fill="{DynamicResource TextMutedBrush}"
-                             VerticalAlignment="Center"
-                             Margin="8,0" />
-                    <TextBlock Text="B 站字幕查看器"
-                               FontSize="12"
-                               Foreground="{DynamicResource TextSecondaryBrush}"
-                               VerticalAlignment="Center" />
-                </StackPanel>
-
-                <!-- 中间空白拖拽区域 -->
-                <Rectangle Grid.Column="1" Fill="Transparent"
-                           shell:WindowChrome.IsHitTestVisibleInChrome="False" />
-
-                <!-- 最小化 -->
-                <Button Grid.Column="2"
-                        Style="{DynamicResource TitleBarButtonStyle}"
-                        x:Name="MinimizeButton"
-                        Click="MinimizeButton_Click"
-                        shell:WindowChrome.IsHitTestVisibleInChrome="True">
-                    <Path Data="M0,0 L10,0"
-                          Stroke="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
-                          StrokeThickness="1.2"
-                          VerticalAlignment="Center"
-                          HorizontalAlignment="Center" />
-                </Button>
-
-                <!-- 最大化/还原 -->
-                <Button Grid.Column="3"
-                        Style="{DynamicResource TitleBarButtonStyle}"
-                        x:Name="MaximizeButton"
-                        Click="MaximizeButton_Click"
-                        shell:WindowChrome.IsHitTestVisibleInChrome="True">
-                    <Grid Width="10" Height="10">
-                        <Path x:Name="MaxIcon"
-                              Data="M0,0 L10,0 L10,10 L0,10 Z"
-                              Stroke="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
-                              StrokeThickness="1.2"
-                              Fill="Transparent" />
-                        <Path x:Name="RestoreIcon"
-                              Data="M2,2 L10,2 L10,10 L2,10 Z M0,0 L8,0 L8,8 L0,8 Z"
-                              Stroke="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
-                              StrokeThickness="1.2"
-                              Fill="{DynamicResource SurfaceBrush}"
-                              Visibility="Collapsed" />
-                    </Grid>
-                </Button>
-
-                <!-- 关闭 -->
-                <Button Grid.Column="4"
-                        Style="{DynamicResource CloseButtonStyle}"
-                        x:Name="CloseButton"
-                        Click="CloseButton_Click"
-                        shell:WindowChrome.IsHitTestVisibleInChrome="True">
-                    <Path Data="M0,0 L10,10 M10,0 L0,10"
-                          Stroke="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
-                          StrokeThickness="1.2"
-                          VerticalAlignment="Center"
-                          HorizontalAlignment="Center" />
-                </Button>
-            </Grid>
-        </Border>
+        <!-- ═══ WPF-UI 标题栏（自动处理拖拽、双击最大化、窗口按钮，主题感知） ═══ -->
+        <ui:TitleBar Grid.Row="0"
+                     Title="BiliHelper"
+                     CloseWindowByDoubleClickOnIcon="True">
+            <ui:TitleBar.Icon>
+                <ui:ImageIcon Source="pack://application:,,,/Assets/logo.png" />
+            </ui:TitleBar.Icon>
+        </ui:TitleBar>
 
         <!-- ═══ URL 输入行 ═══ -->
-        <Border Grid.Row="1" Background="{DynamicResource SurfaceBrush}" Padding="16,12"
-                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1">
+        <Border Grid.Row="1" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}" Padding="16,12"
+                BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" BorderThickness="0,0,0,1">
             <StackPanel>
                 <Grid>
                     <Grid.ColumnDefinitions>
@@ -301,21 +65,16 @@
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
 
-                    <Border Grid.Column="0"
-                            Background="{DynamicResource InputBgBrush}"
-                            BorderBrush="{DynamicResource BorderBrush}"
-                            BorderThickness="1" CornerRadius="6">
-                        <TextBox Text="{Binding Url, UpdateSourceTrigger=PropertyChanged}"
-                                 FontSize="14" Padding="12,8" BorderThickness="0"
-                                 Background="Transparent" Foreground="{DynamicResource TextPrimaryBrush}"
-                                 CaretBrush="{DynamicResource PrimaryBrush}"
-                                 VerticalContentAlignment="Center" />
-                    </Border>
+                    <TextBox Grid.Column="0"
+                             Text="{Binding Url, UpdateSourceTrigger=PropertyChanged}"
+                             FontSize="14"
+                             Padding="12,8"
+                             Height="38"
+                             VerticalContentAlignment="Center" />
 
                     <Button Grid.Column="1"
                             Content="拉取字幕"
                             Command="{Binding FetchCommand}"
-                            Style="{DynamicResource SecondaryButtonStyle}"
                             Height="38" Margin="8,0,0,0"
                             Padding="20,0" FontSize="13" />
 
@@ -323,7 +82,6 @@
                     <Button Grid.Column="2"
                             Content="📋 历史"
                             Command="{Binding ToggleHistoryCommand}"
-                            Style="{DynamicResource SecondaryButtonStyle}"
                             Height="38" Margin="8,0,0,0"
                             Padding="14,0"
                             FontSize="13" />
@@ -332,20 +90,19 @@
                             Content="⚙️ 配置"
                             x:Name="SettingsButton"
                             Click="SettingsButton_Click"
-                            Style="{DynamicResource SecondaryButtonStyle}"
                             Height="38" Margin="8,0,0,0"
                             Padding="14,0"
                             FontSize="13" />
                 </Grid>
                 <TextBlock Text="💡 支持 BV 号 / 完整 URL / 多P合集 / 自动识别字幕语言"
-                           FontSize="11" Foreground="{DynamicResource TextMutedBrush}" Margin="0,4,0,0" />
+                           FontSize="11" Foreground="{DynamicResource TextFillColorTertiaryBrush}" Margin="0,4,0,0" />
             </StackPanel>
         </Border>
 
         <!-- ═══ 进度条行 ═══ -->
-        <Border Grid.Row="2" Background="{DynamicResource SurfaceBrush}"
+        <Border Grid.Row="2" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
                 Padding="16,12"
-                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1"
+                BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" BorderThickness="0,0,0,1"
                 Visibility="{Binding HasProgress, Converter={StaticResource BoolToVis}}">
             <Grid>
                 <Grid.RowDefinitions>
@@ -357,8 +114,8 @@
                              Value="{Binding ProgressPercent}"
                              Minimum="0" Maximum="100"
                              Height="6"
-                             Foreground="{DynamicResource PrimaryBrush}"
-                             Background="{DynamicResource BorderBrush}"
+                             Foreground="{DynamicResource AccentFillColorDefaultBrush}"
+                             Background="{DynamicResource ControlStrokeColorDefaultBrush}"
                              BorderThickness="0" />
 
                 <Grid Grid.Row="1" Margin="0,4,0,0">
@@ -367,26 +124,26 @@
                         <ColumnDefinition Width="Auto" />
                     </Grid.ColumnDefinitions>
                     <TextBlock Grid.Column="0" Text="{Binding ProgressText}"
-                               FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"
+                               FontSize="11" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                TextTrimming="CharacterEllipsis" />
                     <TextBlock Grid.Column="1" Text="{Binding ProgressPercent, StringFormat={}{0:F0}%}"
-                               FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}" />
+                               FontSize="11" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
                 </Grid>
             </Grid>
         </Border>
 
         <!-- ═══ 错误行 ═══ -->
-        <Border Grid.Row="3" Background="{DynamicResource SurfaceBrush}" Padding="16,8"
-                BorderBrush="{DynamicResource ErrorBrush}" BorderThickness="0,0,0,1"
+        <Border Grid.Row="3" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}" Padding="16,8"
+                BorderBrush="{DynamicResource SystemFillColorCriticalBrush}" BorderThickness="0,0,0,1"
                 Visibility="{Binding HasError, Converter={StaticResource BoolToVis}}">
             <TextBlock Text="{Binding ErrorMessage}"
-                       Foreground="{DynamicResource ErrorBrush}"
+                       Foreground="{DynamicResource SystemFillColorCriticalBrush}"
                        FontSize="13" TextWrapping="Wrap" />
         </Border>
 
         <!-- ═══ 视频元信息 ═══ -->
-        <Border Grid.Row="4" Background="{DynamicResource SurfaceBrush}" Padding="16,12"
-                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1"
+        <Border Grid.Row="4" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}" Padding="16,12"
+                BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" BorderThickness="0,0,0,1"
                 Visibility="{Binding HasVideoInfo, Converter={StaticResource BoolToVis}}">
             <Grid>
                 <Grid.ColumnDefinitions>
@@ -404,18 +161,18 @@
                                FontSize="16" FontWeight="Bold"
                                TextTrimming="CharacterEllipsis" MaxWidth="500" />
                     <TextBlock Text="{Binding VideoInfo.BvId, StringFormat='  ·  {0}'}"
-                               FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"
+                               FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                VerticalAlignment="Center" />
                     <TextBlock Text="{Binding VideoInfo.StatusDisplay, StringFormat='  ·  {0}'}"
-                               FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"
+                               FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                VerticalAlignment="Center" Margin="0,0,10,0" />
                     <TextBlock Text="{Binding VideoInfo.TotalSubtitleCount, StringFormat='共 {0} 条字幕'}"
-                               FontSize="12" Foreground="{DynamicResource TextSecondaryBrush}"
+                               FontSize="12" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                VerticalAlignment="Center" />
                 </StackPanel>
 
                 <TextBlock Grid.Column="2" Text="{Binding VideoInfo.TotalParts, StringFormat='共 {0}P'}"
-                           Foreground="{DynamicResource TextSecondaryBrush}"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                            FontSize="12"
                            VerticalAlignment="Center" />
             </Grid>
@@ -432,27 +189,26 @@
                 </Grid.ColumnDefinitions>
 
                 <!-- 左侧：分P列表 -->
-                <Border Grid.Column="0" Background="{DynamicResource SurfaceBrush}"
-                        BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,1,0">
+                <Border Grid.Column="0" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" BorderThickness="0,0,1,0">
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
 
-                        <Border Grid.Row="0" BorderBrush="{DynamicResource BorderBrush}"
+                        <Border Grid.Row="0" BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
                                 BorderThickness="0,0,0,1" Padding="14,10">
                             <TextBlock Text="{Binding VideoInfo.TotalParts, StringFormat='📋 分P 列表 ({0})'}"
                                        FontSize="13" FontWeight="SemiBold"
-                                       Foreground="{DynamicResource TextSecondaryBrush}" />
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
                         </Border>
 
                         <ListBox Grid.Row="1"
                                  ItemsSource="{Binding VideoInfo.Parts}"
                                  SelectedItem="{Binding SelectedPart}"
-                                 ItemContainerStyle="{DynamicResource PartItemStyle}"
                                  Background="Transparent" BorderThickness="0"
-                                 Foreground="{DynamicResource TextPrimaryBrush}"
+                                 Foreground="{DynamicResource TextFillColorPrimaryBrush}"
                                  ScrollViewer.HorizontalScrollBarVisibility="Disabled">
                             <ListBox.ItemTemplate>
                                 <DataTemplate>
@@ -467,10 +223,10 @@
                                                  VerticalAlignment="Center" Margin="0,0,8,0">
                                             <Ellipse.Style>
                                                 <Style TargetType="Ellipse">
-                                                    <Setter Property="Fill" Value="{DynamicResource SuccessBrush}" />
+                                                    <Setter Property="Fill" Value="{DynamicResource SystemFillColorSuccessBrush}" />
                                                     <Style.Triggers>
                                                         <DataTrigger Binding="{Binding HasSubtitles}" Value="False">
-                                                            <Setter Property="Fill" Value="{DynamicResource TextMutedBrush}" />
+                                                            <Setter Property="Fill" Value="{DynamicResource TextFillColorTertiaryBrush}" />
                                                         </DataTrigger>
                                                     </Style.Triggers>
                                                 </Style>
@@ -481,7 +237,7 @@
                                                    FontSize="13" TextTrimming="CharacterEllipsis"
                                                    VerticalAlignment="Center" />
                                         <TextBlock Grid.Column="2" Text="{Binding DurationFormatted}"
-                                                   FontSize="11" Foreground="{DynamicResource TextMutedBrush}"
+                                                   FontSize="11" Foreground="{DynamicResource TextFillColorTertiaryBrush}"
                                                    VerticalAlignment="Center" />
                                     </Grid>
                                 </DataTemplate>
@@ -496,101 +252,20 @@
                               ResizeDirection="Columns" />
 
                 <!-- 右侧：字幕区域 -->
-                <Border Grid.Column="2" Background="{DynamicResource BackgroundBrush}">
+                <Border Grid.Column="2" Background="{DynamicResource ApplicationBackgroundBrush}">
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
 
-                        <!-- ═══ TAB 栏 ═══ -->
-                        <Border Grid.Row="0" Background="{DynamicResource SurfaceBrush}"
-                                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1">
-                            <Grid>
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="Auto" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-                                <!-- 原始字幕 TAB -->
-                                <Border Grid.Column="0"
-                                        x:Name="TabOriginal"
-                                        PreviewMouseDown="SubtitleTab_PreviewMouseDown"
-                                        Background="{DynamicResource SurfaceBrush}"
-                                        Padding="16,8,16,8"
-                                        Cursor="Hand">
-                                    <Border.Style>
-                                        <Style TargetType="Border">
-                                            <Setter Property="BorderBrush" Value="Transparent" />
-                                            <Setter Property="BorderThickness" Value="0,0,0,2" />
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding SelectedSubtitleTab}" Value="0">
-                                                    <Setter Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
-                                                </DataTrigger>
-                                                <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
-                                                </Trigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </Border.Style>
-                                    <TextBlock Text="原始字幕"
-                                               FontSize="13" FontWeight="SemiBold">
-                                        <TextBlock.Style>
-                                            <Style TargetType="TextBlock">
-                                                <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding SelectedSubtitleTab}" Value="0">
-                                                        <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </TextBlock.Style>
-                                    </TextBlock>
-                                </Border>
-                                <!-- 原始全文 TAB -->
-                                <Border Grid.Column="1"
-                                        x:Name="TabFullText"
-                                        PreviewMouseDown="SubtitleTab_PreviewMouseDown"
-                                        Background="Transparent"
-                                        Padding="16,8,16,8"
-                                        Cursor="Hand">
-                                    <Border.Style>
-                                        <Style TargetType="Border">
-                                            <Setter Property="BorderBrush" Value="Transparent" />
-                                            <Setter Property="BorderThickness" Value="0,0,0,2" />
-                                            <Style.Triggers>
-                                                <DataTrigger Binding="{Binding SelectedSubtitleTab}" Value="1">
-                                                    <Setter Property="BorderBrush" Value="{DynamicResource PrimaryBrush}" />
-                                                </DataTrigger>
-                                                <Trigger Property="IsMouseOver" Value="True">
-                                                    <Setter Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
-                                                </Trigger>
-                                            </Style.Triggers>
-                                        </Style>
-                                    </Border.Style>
-                                    <TextBlock Text="AI润色"
-                                               FontSize="13">
-                                        <TextBlock.Style>
-                                            <Style TargetType="TextBlock">
-                                                <Setter Property="FontWeight" Value="Normal" />
-                                                <Setter Property="Foreground" Value="{DynamicResource TextMutedBrush}" />
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding SelectedSubtitleTab}" Value="1">
-                                                        <Setter Property="FontWeight" Value="SemiBold" />
-                                                        <Setter Property="Foreground" Value="{DynamicResource PrimaryBrush}" />
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </TextBlock.Style>
-                                    </TextBlock>
-                                </Border>
-
-                            </Grid>
-                        </Border>
-
-                        <!-- 原始字幕内容（SelectedSubtitleTab == 0） -->
-                        <Grid Grid.Row="1" Visibility="{Binding IsOriginalSubtitleVisible, Converter={StaticResource BoolToVis}}">
+                        <!-- ═══ TAB 栏（WPF-UI TabControl；SelectedIndex 双向绑定 SelectedSubtitleTab） ═══ -->
+                        <TabControl Grid.Row="0"
+                                    SelectedIndex="{Binding SelectedSubtitleTab, Mode=TwoWay}"
+                                    Background="Transparent"
+                                    BorderThickness="0">
+                            <TabItem Header="原始字幕">
+                                <Grid Visibility="{Binding IsOriginalSubtitleVisible, Converter={StaticResource BoolToVis}}">
                             <Grid.RowDefinitions>
                                 <RowDefinition Height="Auto" />
                                 <RowDefinition Height="Auto" />
@@ -598,8 +273,8 @@
                             </Grid.RowDefinitions>
 
                             <!-- 搜索栏 -->
-                            <Border Grid.Row="0" Background="{DynamicResource SurfaceBrush}"
-                                    BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,0,0,1"
+                            <Border Grid.Row="0" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                                    BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" BorderThickness="0,0,0,1"
                                     Padding="12,8">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
@@ -607,19 +282,15 @@
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
 
-                                    <Border Grid.Column="0"
-                                            Background="{DynamicResource InputBgBrush}"
-                                            BorderBrush="{DynamicResource BorderBrush}"
-                                            BorderThickness="1" CornerRadius="4" Height="32">
-                                        <TextBox Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
-                                                 FontSize="13" Padding="8,0" BorderThickness="0"
-                                                 Background="Transparent" Foreground="{DynamicResource TextPrimaryBrush}"
-                                                 CaretBrush="{DynamicResource PrimaryBrush}"
-                                                 VerticalContentAlignment="Center" />
-                                    </Border>
+                                    <TextBox Grid.Column="0"
+                                             Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
+                                             FontSize="13"
+                                             Padding="8,0"
+                                             Height="32"
+                                             VerticalContentAlignment="Center" />
 
                                     <TextBlock Grid.Column="1" Text="{Binding FilteredCount}"
-                                               FontSize="11" Foreground="{DynamicResource TextSecondaryBrush}"
+                                               FontSize="11" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                                VerticalAlignment="Center" Margin="12,0,0,0" />
                                 </Grid>
                             </Border>
@@ -627,7 +298,7 @@
                             <!-- 无选中分P时的占位 -->
                             <TextBlock Grid.Row="1"
                                        Text="← 从左侧选择一个分P"
-                                       FontSize="14" Foreground="{DynamicResource TextMutedBrush}"
+                                       FontSize="14" Foreground="{DynamicResource TextFillColorTertiaryBrush}"
                                        HorizontalAlignment="Center" VerticalAlignment="Center"
                                        Visibility="{Binding SelectedPart, Converter={StaticResource NullToVis}, ConverterParameter=Invert}" />
 
@@ -635,9 +306,8 @@
                             <Grid Grid.Row="2">
                                 <ListBox x:Name="SubtitleListBox"
                                          ItemsSource="{Binding FilteredEntries}"
-                                         ItemContainerStyle="{DynamicResource SubItemStyle}"
                                          Background="Transparent" BorderThickness="0"
-                                         Foreground="{DynamicResource TextPrimaryBrush}">
+                                         Foreground="{DynamicResource TextFillColorPrimaryBrush}">
                                     <ListBox.ItemTemplate>
                                         <DataTemplate>
                                             <Grid>
@@ -650,19 +320,19 @@
                                                 </Grid.RowDefinitions>
 
                                                 <Border Grid.Row="0" Grid.Column="0"
-                                                        Background="{DynamicResource SurfaceBrush}"
-                                                        BorderBrush="{DynamicResource BorderBrush}"
+                                                        Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                                                        BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
                                                         BorderThickness="1" CornerRadius="4"
                                                         Padding="8,4" VerticalAlignment="Top"
                                                         Margin="0,0,10,0" MinWidth="80">
                                                     <StackPanel>
                                                         <TextBlock Text="{Binding StartTimeFormatted}"
                                                                    FontSize="12" FontFamily="pack://application:,,,/BiliHelperWpf;component/Assets/#Lilex Duo"
-                                                                   Foreground="{DynamicResource PrimaryBrush}"
+                                                                   Foreground="{DynamicResource AccentFillColorDefaultBrush}"
                                                                    HorizontalAlignment="Center" />
                                                         <TextBlock Text="{Binding EndTimeFormatted}"
                                                                    FontSize="10" FontFamily="pack://application:,,,/BiliHelperWpf;component/Assets/#Lilex Duo"
-                                                                   Foreground="{DynamicResource TextMutedBrush}"
+                                                                   Foreground="{DynamicResource TextFillColorTertiaryBrush}"
                                                                    HorizontalAlignment="Center" />
                                                     </StackPanel>
                                                 </Border>
@@ -671,48 +341,42 @@
                                                        Text="{Binding Text}"
                                                        FontSize="14" TextWrapping="Wrap"
                                                        LineHeight="22" VerticalAlignment="Center"
-                                                       Foreground="{DynamicResource TextPrimaryBrush}" />
+                                                       Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
                                             </Grid>
                                         </DataTemplate>
                                     </ListBox.ItemTemplate>
                                 </ListBox>
                             </Grid>
                         </Grid>
+                            </TabItem>
+                            <TabItem Header="AI润色">
+                                <Grid Visibility="{Binding IsFullTextVisible, Converter={StaticResource BoolToVis}}">
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />  <!-- 错误 -->
+                                        <RowDefinition Height="Auto" />  <!-- 无选中分P占位 -->
+                                        <RowDefinition Height="*" />     <!-- 内容区：未整理卡片 / 段落列表 -->
+                                    </Grid.RowDefinitions>
 
-                        <!-- AI润色内容（SelectedSubtitleTab == 1） -->
-                        <Grid Grid.Row="1" Visibility="{Binding IsFullTextVisible, Converter={StaticResource BoolToVis}}">
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="Auto" />  <!-- 错误 -->
-                                <RowDefinition Height="Auto" />  <!-- 无选中分P占位 -->
-                                <RowDefinition Height="*" />     <!-- 内容区：未整理卡片 / 段落列表 -->
-                            </Grid.RowDefinitions>
-
-                            <!-- 错误提示 -->
-                            <Border Grid.Row="0" Background="{DynamicResource ErrorBackgroundBrush}"
-                                    BorderBrush="{DynamicResource ErrorBrush}" BorderThickness="0,0,0,1"
-                                    Padding="12,8"
-                                    Visibility="{Binding AiReadError, Converter={StaticResource BoolToVis}}">
-                                <StackPanel>
-                                    <TextBlock Text="AI 整理失败"
-                                               FontSize="12" FontWeight="SemiBold"
-                                               Foreground="{DynamicResource ErrorBrush}" />
-                                    <TextBlock Text="{Binding AiReadErrorMessage}"
-                                               FontSize="11" Foreground="{DynamicResource ErrorBrush}"
-                                               TextWrapping="Wrap" Margin="0,2,0,0" />
-                                </StackPanel>
-                            </Border>
+                            <!-- 错误提示（WPF-UI InfoBar） -->
+                            <ui:InfoBar Grid.Row="0"
+                                        Title="AI 整理失败"
+                                        Message="{Binding AiReadErrorMessage, Mode=OneWay}"
+                                        Severity="Error"
+                                        IsClosable="False"
+                                        Margin="12,8"
+                                        IsOpen="{Binding AiReadError, Mode=OneWay}" />
 
                             <!-- 无选中分P时的占位 -->
                             <TextBlock Grid.Row="1"
                                        Text="← 从左侧选择一个分P"
-                                       FontSize="14" Foreground="{DynamicResource TextMutedBrush}"
+                                       FontSize="14" Foreground="{DynamicResource TextFillColorTertiaryBrush}"
                                        HorizontalAlignment="Center" VerticalAlignment="Center"
                                        Visibility="{Binding SelectedPart, Converter={StaticResource NullToVis}, ConverterParameter=Invert}" />
 
                             <!-- 未整理时的占位（有选中分P，但还没有 AI 段落） -->
                             <Border Grid.Row="2"
-                                    Background="{DynamicResource SurfaceBrush}"
-                                    BorderBrush="{DynamicResource BorderBrush}"
+                                    Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                                    BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
                                     BorderThickness="1"
                                     CornerRadius="10"
                                     Padding="48,36"
@@ -726,12 +390,12 @@
                                                HorizontalAlignment="Center" />
                                     <TextBlock Text="该分P 尚未进行 AI 整理"
                                                FontSize="16" FontWeight="SemiBold"
-                                               Foreground="{DynamicResource TextPrimaryBrush}"
+                                               Foreground="{DynamicResource TextFillColorPrimaryBrush}"
                                                HorizontalAlignment="Center"
                                                Margin="0,16,0,0" />
                                     <TextBlock Text="AI 将修正错别字、添加标点并分段，生成适合阅读的全文"
                                                FontSize="12"
-                                               Foreground="{DynamicResource TextMutedBrush}"
+                                               Foreground="{DynamicResource TextFillColorTertiaryBrush}"
                                                TextWrapping="Wrap"
                                                TextAlignment="Center"
                                                HorizontalAlignment="Center"
@@ -739,7 +403,6 @@
                                     <!-- 整理中隐藏按钮，进度文本显示在按钮下方 -->
                                     <Button Content="✨ 立即整理当前分P"
                                             Command="{Binding AiReadCommand}"
-                                            Style="{DynamicResource SecondaryButtonStyle}"
                                             Height="36"
                                             Padding="20,0"
                                             Margin="0,20,0,0"
@@ -749,7 +412,7 @@
                                     </Button>
                                     <TextBlock Text="{Binding AiReadStatus}"
                                                FontSize="12"
-                                               Foreground="{DynamicResource TextSecondaryBrush}"
+                                               Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                                HorizontalAlignment="Center"
                                                Margin="0,14,0,0"
                                                TextWrapping="Wrap" />
@@ -769,9 +432,9 @@
                                             <StackPanel Margin="0,0,0,18">
                                                 <TextBlock Text="{Binding Text}"
                                                            FontSize="15" LineHeight="28" TextWrapping="Wrap"
-                                                           Foreground="{DynamicResource TextPrimaryBrush}" />
+                                                           Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
                                                 <TextBlock Text="{Binding SourceStartIndex, StringFormat='↳ 字幕 #{0}'}"
-                                                           FontSize="11" Foreground="{DynamicResource TextMutedBrush}"
+                                                           FontSize="11" Foreground="{DynamicResource TextFillColorTertiaryBrush}"
                                                            Margin="0,4,0,0" />
                                             </StackPanel>
                                         </DataTemplate>
@@ -779,6 +442,8 @@
                                 </ItemsControl>
                             </ScrollViewer>
                         </Grid>
+                            </TabItem>
+                        </TabControl>
 
 
                     </Grid>
@@ -786,37 +451,37 @@
             </Grid>
 
             <!-- 空状态占位 -->
-            <Border Background="{DynamicResource BackgroundBrush}"
+            <Border Background="{DynamicResource ApplicationBackgroundBrush}"
                     Visibility="{Binding HasVideoInfo, Converter={StaticResource InverseBoolToVis}}">
                 <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center">
                     <TextBlock Text="🎬" FontSize="64" HorizontalAlignment="Center" />
                     <TextBlock Text="输入视频 URL 并点击「拉取字幕」"
-                               FontSize="16" Foreground="{DynamicResource TextSecondaryBrush}"
+                               FontSize="16" Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                HorizontalAlignment="Center" Margin="0,16,0,0" />
                     <TextBlock Text="支持 BV 号 · 完整链接 · 多P 视频 · AI 字幕 / CC 字幕"
-                               FontSize="12" Foreground="{DynamicResource TextMutedBrush}"
+                               FontSize="12" Foreground="{DynamicResource TextFillColorTertiaryBrush}"
                                HorizontalAlignment="Center" Margin="0,8,0,0" />
                 </StackPanel>
             </Border>
         </Grid>
 
         <!-- ═══ 底栏 ═══ -->
-        <Border Grid.Row="6" Background="{DynamicResource SurfaceBrush}" Padding="16,6"
-                BorderBrush="{DynamicResource BorderBrush}" BorderThickness="0,1,0,0">
+        <Border Grid.Row="6" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}" Padding="16,6"
+                BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}" BorderThickness="0,1,0,0">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <TextBlock Grid.Column="0" Text="{Binding StatusMessage}"
-                           FontSize="11" Foreground="{DynamicResource TextMutedBrush}"
+                           FontSize="11" Foreground="{DynamicResource TextFillColorTertiaryBrush}"
                            VerticalAlignment="Center" />
                 <!-- 右下角调整大小手柄 -->
                 <Border Grid.Column="1" Width="16" Height="14"
                         VerticalAlignment="Bottom" HorizontalAlignment="Right"
                         Opacity="0.4">
                     <Path Data="M0,14 L14,0"
-                          Stroke="{DynamicResource TextMutedBrush}"
+                          Stroke="{DynamicResource TextFillColorTertiaryBrush}"
                           StrokeThickness="1.5"
                           VerticalAlignment="Bottom"
                           HorizontalAlignment="Right"
@@ -834,14 +499,14 @@
                 <ColumnDefinition Width="320" />
             </Grid.ColumnDefinitions>
             <!-- 半透明遮罩（只覆盖左侧，不挡抽屉） -->
-            <Rectangle Grid.Column="0" Fill="{DynamicResource OverlayBrush}" Opacity="0.3"
+            <Rectangle Grid.Column="0" Fill="{DynamicResource SystemFillColorSolidNeutralBrush}" Opacity="0.3"
                        Cursor="Hand"
                        PreviewMouseDown="HistoryOverlay_MouseDown" />
             <!-- 抽屉面板（右侧滑出） -->
             <Border x:Name="HistoryDrawer"
                     Grid.Column="1"
-                    Background="{DynamicResource SurfaceBrush}"
-                    BorderBrush="{DynamicResource BorderBrush}"
+                    Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                    BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
                     BorderThickness="1,0,0,0"
                     RenderTransformOrigin="1,0.5">
                 <Border.RenderTransform>
@@ -856,7 +521,7 @@
 
                     <!-- 抽屉标题 -->
                     <Border Grid.Row="0"
-                            BorderBrush="{DynamicResource BorderBrush}"
+                            BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
                             BorderThickness="0,0,0,1"
                             Padding="16,12">
                         <Grid>
@@ -876,8 +541,7 @@
                                     Padding="0"
                                     ToolTip="关闭"
                                     Background="Transparent"
-                                    Foreground="{DynamicResource TextSecondaryBrush}"
-                                    shell:WindowChrome.IsHitTestVisibleInChrome="True">
+                                    Foreground="{DynamicResource TextFillColorSecondaryBrush}">
                                 <Button.Template>
                                     <ControlTemplate TargetType="Button">
                                         <Border x:Name="Bd" Background="{TemplateBinding Background}">
@@ -893,11 +557,11 @@
                                         </Border>
                                         <ControlTemplate.Triggers>
                                             <Trigger Property="IsMouseOver" Value="True">
-                                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SurfaceHoverBrush}" />
-                                                <Setter Property="Foreground" Value="{DynamicResource TextPrimaryBrush}" />
+                                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource ControlFillColorSecondaryBrush}" />
+                                                <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
                                             </Trigger>
                                             <Trigger Property="IsPressed" Value="True">
-                                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource TitleBarPressedBrush}" />
+                                                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource ControlFillColorSecondaryBrush}" />
                                             </Trigger>
                                         </ControlTemplate.Triggers>
                                     </ControlTemplate>
@@ -918,11 +582,11 @@
                                 <DataTemplate>
                                     <StackPanel>
                                         <!-- 日期分组标题 -->
-                                        <Border Background="{DynamicResource BackgroundBrush}"
+                                        <Border Background="{DynamicResource ApplicationBackgroundBrush}"
                                                 Padding="16,10,16,4">
                                             <TextBlock Text="{Binding GroupTitle}"
                                                        FontSize="12" FontWeight="SemiBold"
-                                                       Foreground="{DynamicResource TextSecondaryBrush}" />
+                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
                                         </Border>
 
                                         <!-- 该日期下的视频列表 -->
@@ -932,7 +596,7 @@
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate>
                                                     <Border Padding="16,10,16,10"
-                                                            BorderBrush="{DynamicResource BorderBrush}"
+                                                            BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
                                                             BorderThickness="0,0,0,1"
                                                             Cursor="Hand">
                                                         <Border.Style>
@@ -940,7 +604,7 @@
                                                                 <Setter Property="Background" Value="Transparent" />
                                                                 <Style.Triggers>
                                                                     <Trigger Property="IsMouseOver" Value="True">
-                                                                        <Setter Property="Background" Value="{DynamicResource SurfaceSelectedBrush}" />
+                                                                        <Setter Property="Background" Value="{DynamicResource ControlAltFillColorSecondaryBrush}" />
                                                                     </Trigger>
                                                                 </Style.Triggers>
                                                             </Style>
@@ -968,14 +632,14 @@
                                                             <TextBlock Grid.Row="0" Grid.Column="1"
                                                                        Text="{Binding TimeStr}"
                                                                        FontSize="11"
-                                                                       Foreground="{DynamicResource TextMutedBrush}"
+                                                                       Foreground="{DynamicResource TextFillColorTertiaryBrush}"
                                                                        VerticalAlignment="Center"
                                                                        Margin="10,0,0,0" />
 
                                                             <TextBlock Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
                                                                        Text="{Binding Summary}"
                                                                        FontSize="11"
-                                                                       Foreground="{DynamicResource TextSecondaryBrush}"
+                                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                                                        Margin="0,2,0,0" />
                                                         </Grid>
                                                     </Border>
@@ -992,10 +656,10 @@
                     <TextBlock Grid.Row="2"
                                Text="单击条目加载历史"
                                FontSize="11"
-                               Foreground="{DynamicResource TextMutedBrush}"
+                               Foreground="{DynamicResource TextFillColorTertiaryBrush}"
                                Padding="16,8" />
                 </Grid>
             </Border>
         </Grid>
     </Grid>
-</Window>
+</ui:FluentWindow>

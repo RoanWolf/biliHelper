@@ -10,7 +10,7 @@ namespace BiliHelperWpf;
 /// 导航分组：「服务」= 获取cookie / AI模型，「个性化」= 外观。
 /// 由 MainWindow 打开（SettingsButton_Click / 无 cookie 时自动弹账号面板）。
 /// </summary>
-public partial class SettingsWindow : Window
+public partial class SettingsWindow : Wpf.Ui.Controls.FluentWindow
 {
     private readonly MainViewModel _vm;
     private readonly UserControl[] _panels;
@@ -58,5 +58,4 @@ public partial class SettingsWindow : Window
             ContentHost.Content = _panels[index];
     }
 
-    private void CloseButton_Click(object sender, RoutedEventArgs e) => Close();
 }

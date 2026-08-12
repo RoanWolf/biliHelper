@@ -45,8 +45,8 @@ public partial class AiModelPanel : UserControl
         TestResultBox.Visibility = Visibility.Visible;
         TestResultText.Text = $"{((ok ? "✔" : "✖"))} {message}";
         TestResultText.Foreground = ok
-            ? (Brush)FindResource("SuccessBrush")
-            : (Brush)FindResource("ErrorBrush");
+            ? (Brush)FindResource("SystemFillColorSuccessBrush")
+            : (Brush)FindResource("SystemFillColorCriticalBrush");
     }
 
     private async void TestButton_Click(object sender, RoutedEventArgs e)
