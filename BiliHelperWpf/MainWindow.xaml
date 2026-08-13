@@ -4,6 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:conv="clr-namespace:BiliHelperWpf.Converters"
+        xmlns:local="clr-namespace:BiliHelperWpf"
         xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
         mc:Ignorable="d"
         Title="BiliHelper"
@@ -45,11 +46,8 @@
                      Height="32"
                      Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
                      Title="BiliHelper"
-                     CloseWindowByDoubleClickOnIcon="True">
-            <ui:TitleBar.Icon>
-                <ui:ImageIcon Source="pack://application:,,,/Assets/logo.png"
-                              Width="12" Height="12" />
-            </ui:TitleBar.Icon>
+                     CloseWindowByDoubleClickOnIcon="False">
+
         </ui:TitleBar>
 
         <!-- ═══ URL 输入行 ═══ -->

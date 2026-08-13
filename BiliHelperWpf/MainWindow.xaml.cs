@@ -14,15 +14,21 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
 {
     private MainViewModel _vm = null!;
 
+
     public MainWindow()
     {
         InitializeComponent();
         DataContext = new MainViewModel();
         _vm = (MainViewModel)DataContext;
 
-        // 设置任务栏图标
-        Icon = new System.Windows.Media.Imaging.BitmapImage(
-            new Uri("pack://application:,,,/Assets/logo.png"));
+        // 设置任务栏图标（多尺寸 .ico：任务栏/Alt+Tab 缩放更清晰）
+        var iconDecoder = new System.Windows.Media.Imaging.IconBitmapDecoder(
+            new Uri("pack://application:,,,/Assets/alma.ico"),
+            System.Windows.Media.Imaging.BitmapCreateOptions.PreservePixelFormat,
+            System.Windows.Media.Imaging.BitmapCacheOption.OnLoad);
+        Icon = iconDecoder.Frames.OrderByDescending(f => f.PixelWidth).First();
+
+
 
         // 切换分P时自动滚动字幕列表到顶部
         _vm.PropertyChanged += (_, e) =>

@@ -14,7 +14,6 @@ public partial class SettingsWindow : Wpf.Ui.Controls.FluentWindow
 {
     private readonly MainViewModel _vm;
     private readonly UserControl[] _panels;
-
     [DllImport("user32.dll", CharSet = CharSet.Auto)]
     private static extern IntPtr LoadCursor(IntPtr hInstance, int cursor);
 

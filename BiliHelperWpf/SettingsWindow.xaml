@@ -1,6 +1,7 @@
 <ui:FluentWindow x:Class="BiliHelperWpf.SettingsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:BiliHelperWpf"
         xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
         Title="设置"
         Width="880" Height="620"
@@ -44,11 +45,8 @@
                      Title="设置"
                      ShowMaximize="False"
                      ShowMinimize="False"
-                     CloseWindowByDoubleClickOnIcon="True">
-            <ui:TitleBar.Icon>
-                <ui:ImageIcon Source="pack://application:,,,/Assets/logo.png"
-                              Width="12" Height="12" />
-            </ui:TitleBar.Icon>
+                     CloseWindowByDoubleClickOnIcon="False">
+
         </ui:TitleBar>
 
         <!-- ═══ 主体：左侧分组导航 + 右侧内容 ═══ -->

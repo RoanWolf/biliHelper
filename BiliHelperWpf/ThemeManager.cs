@@ -19,6 +19,12 @@ namespace BiliHelperWpf;
 public static class ThemeManager
 {
     /// <summary>
+    /// 主题切换完成后触发（含启动恢复与覆盖资源重注入），参数为当前是否深色。
+    /// 供标题栏 logo 等主题感知元素订阅刷新。
+    /// </summary>
+    public static event Action<bool>? ThemeChanged;
+
+    /// <summary>
     /// 当前是否为深色主题（从 WPF-UI 当前应用主题派生）。
     /// </summary>
     public static bool IsDark =>
@@ -41,6 +47,7 @@ public static class ThemeManager
             Persistence.Save(dark);
             // 覆盖资源仍需同步（启动/切换时可能未注入过）
             ApplyThemeOverrides(dark);
+            ThemeChanged?.Invoke(dark);
             return;
         }
 
@@ -60,6 +67,7 @@ public static class ThemeManager
             // 主题一致时虽无需重复 apply，但浅色/深色覆盖资源必须补注入
             // （此前覆盖只能在 Apply() 路径触发——启动时主题一致会跳过，导致浅色选中态覆盖从不生效）
             ApplyThemeOverrides(saved);
+            ThemeChanged?.Invoke(saved);
             return;
         }
 
@@ -88,6 +96,9 @@ public static class ThemeManager
 
             // 按当前主题类型注入/移除覆盖资源（深色注入灰背景，浅色淡化选中态）
             ApplyThemeOverrides(dark);
+
+            // 通知主题感知元素（标题栏 logo 等）刷新
+            ThemeChanged?.Invoke(dark);
         }
         catch (Exception ex)
         {
