@@ -640,6 +640,9 @@ public class MainViewModel : ViewModelBase
                         // 保存到历史记录（后台线程，不阻塞 UI）
                         await Task.Run(() => HistoryService.SaveFromVideoInfo(info));
 
+                        // 成功完成：清空 URL 输入框（失败/取消时保留，方便重试）
+                        Url = string.Empty;
+
                         StatusMessage = $"✅ 已加载 · {info.Title} · 共 {info.TotalParts}P · {info.TotalSubtitleCount} 条字幕";
                     });
 
