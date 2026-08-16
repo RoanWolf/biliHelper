@@ -5,7 +5,9 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Windows;
 using System.Windows.Input;
+using System.Windows.Threading;
 using BiliHelperWpf.Models;
 using BiliHelperWpf.Services;
 
@@ -139,7 +141,8 @@ public class MainViewModel : ViewModelBase
                         SelectedSubtitleTab = tab;
                 }
 
-                ApplyFilter();
+                EnsurePartEntriesLoaded(value);
+                ScheduleFilter();
                 OnPropertyChanged(nameof(IsOriginalSubtitleVisible));
                 OnPropertyChanged(nameof(IsFullTextVisible));
                 OnPropertyChanged(nameof(ShowAiReadEmptyCard));
@@ -151,13 +154,15 @@ public class MainViewModel : ViewModelBase
 
     // ── 搜索 ────────────────────────────────────────────────
     private string _searchText = string.Empty;
+    private DispatcherTimer? _filterDebounce;
+
     public string SearchText
     {
         get => _searchText;
         set
         {
             if (SetProperty(ref _searchText, value))
-                ApplyFilter();
+                ScheduleFilter();
         }
     }
 
@@ -296,6 +301,7 @@ public class MainViewModel : ViewModelBase
     public ICommand FetchCommand { get; }
     public ICommand ToggleHistoryCommand { get; }
     public ICommand LoadFromHistoryCommand { get; }
+    public ICommand DeleteHistoryCommand { get; }
     public ICommand AiReadCommand { get; }
 
     public MainViewModel()
@@ -306,6 +312,11 @@ public class MainViewModel : ViewModelBase
         {
             if (param is HistoryItem item)
                 await LoadHistoryItem(item);
+        });
+        DeleteHistoryCommand = new RelayCommand(async param =>
+        {
+            if (param is HistoryItem item)
+                await DeleteHistoryItemAsync(item);
         });
         AiReadCommand = new RelayCommand(async _ => await GenerateReadAsync(), _ => CanAiRead);
     }
@@ -347,12 +358,6 @@ public class MainViewModel : ViewModelBase
         App.Log($"MainViewModel: 删除 cookie 结果: {deleted}");
         CookieState = CookieState.None;
         CookieTooltip = "未登录 B 站";
-    }
-
-    private async Task RefreshCookieStatusAsync()
-    {
-        var (state, message) = await _authService.CheckAsync();
-        ApplyCookieState(state, message);
     }
 
     private void ApplyCookieState(string state, string message)
@@ -425,6 +430,36 @@ public class MainViewModel : ViewModelBase
         // 选中第一个有字幕的分P
         var firstWithSubs = info.Parts.FirstOrDefault(p => p.HasSubtitles);
         SelectPart(firstWithSubs ?? info.Parts.FirstOrDefault()!);
+    }
+
+    /// <summary>
+    /// 删除一条历史记录（含本地文件），并从当前历史列表移除。
+    /// 若删除的是当前加载的视频，同时清空当前展示。
+    /// </summary>
+    private async Task DeleteHistoryItemAsync(HistoryItem item)
+    {
+        var confirm = MessageBox.Show(
+            $"确定删除「{item.DisplayTitle}」吗？\n该操作会删除本地字幕与整理数据，不可恢复。",
+            "删除历史记录",
+            MessageBoxButton.YesNo,
+            MessageBoxImage.Warning);
+        if (confirm != MessageBoxResult.Yes)
+            return;
+
+        await Task.Run(() => HistoryService.Delete(item.BvId));
+
+        foreach (var group in HistoryGroups)
+            group.Items.Remove(item);
+
+        if (VideoInfo?.BvId == item.BvId)
+        {
+            VideoInfo = null;
+            SelectedPart = null;
+            FilteredEntries = new ObservableCollection<SubtitleEntry>();
+            ResetAiReadState();
+            StatusMessage = "🗑 已删除该历史记录";
+        }
+        App.Log($"历史记录已删除: {item.BvId}");
     }
 
     /// <summary>
@@ -506,6 +541,7 @@ public class MainViewModel : ViewModelBase
                         SubtitleCount = ev.SubtitleCount,
                         SubtitleSource = ev.SubtitleSource,
                         SubtitleLang = ev.SubtitleLang,
+                        EntriesLoaded = true, // 流式逐P 到达即完整，无需懒加载
                     };
 
                     if (ev.Entries != null)
@@ -616,6 +652,48 @@ public class MainViewModel : ViewModelBase
     private void SelectPart(PartInfo part)
     {
         SelectedPart = part;
+    }
+
+    /// <summary>
+    /// 历史加载时按需懒加载某分P 的字幕 entries（fetch 流式路径已在 onPart 填充完毕）。
+    /// entries 未加载（且该分P 有字幕）时，后台读 parts/NNN.json 填充后刷新筛选。
+    /// </summary>
+    private async void EnsurePartEntriesLoaded(PartInfo? part)
+    {
+        if (part == null || part.EntriesLoaded)
+            return;
+
+        var bvId = VideoInfo?.BvId;
+        if (string.IsNullOrEmpty(bvId))
+            return;
+
+        part.EntriesLoaded = true; // 先置位，防并发重入
+
+        var partNumber = part.PartNumber;
+        List<SubtitleEntry>? entries;
+        try
+        {
+            entries = await Task.Run(() => HistoryService.LoadPartEntries(bvId, partNumber));
+        }
+        catch (Exception ex)
+        {
+            App.Log($"懒加载分P {partNumber} 异常: {ex.Message}");
+            entries = null;
+        }
+
+        if (entries == null)
+        {
+            part.EntriesLoaded = false; // 失败允许下次重试
+            return;
+        }
+
+        // await 后续体在 UI 线程（SynchronizationContext），安全地填充并刷新
+        part.Entries.Clear();
+        foreach (var e in entries)
+            part.Entries.Add(e);
+
+        if (SelectedPart == part)
+            ScheduleFilter();
     }
 
     /// <summary>
@@ -919,39 +997,63 @@ public class MainViewModel : ViewModelBase
         }
     }
 
-    private void ApplyFilter()
+    /// <summary>
+    /// 防抖调度筛选：搜索输入 / 切换分P 后短暂停顿再执行，
+    /// 避免连续输入时每次都全量过滤（大分P 数万条字幕会卡 UI）。
+    /// </summary>
+    private void ScheduleFilter()
     {
-        if (SelectedPart == null)
+        if (_filterDebounce == null)
+        {
+            _filterDebounce = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(200) };
+            _filterDebounce.Tick += async (_, _) =>
+            {
+                _filterDebounce.Stop();
+                await ApplyFilterAsync();
+            };
+        }
+        _filterDebounce.Stop();
+        _filterDebounce.Start();
+    }
+
+    /// <summary>
+    /// 后台线程过滤 + 整体替换集合（避免 UI 线程全量过滤卡顿）。
+    /// 捕获当前分P 与搜索词快照，完成时若用户已切走则丢弃结果，由最新一轮调度接管。
+    /// </summary>
+    private async Task ApplyFilterAsync()
+    {
+        var part = SelectedPart;
+        var keyword = (SearchText ?? string.Empty).Trim();
+
+        if (part == null)
         {
             FilteredEntries = new ObservableCollection<SubtitleEntry>();
             OnPropertyChanged(nameof(FilteredCount));
             return;
         }
 
-        var source = SelectedPart.Entries;
-
-        // 整体替换集合（而非逐条 Clear/Add）：切换分P / 搜索时只触发一次 CollectionChanged，
-        // ListBox 虚拟化下一次重建，避免几千条字幕的通知风暴卡顿 UI（曾导致切换分P 卡约 1 秒）。
-        // 注意：ObservableCollection 不实现 ISupportInitialize，不能强转批量更新；
-        // 虚拟化由 XAML 侧 ScrollViewer.CanContentScroll + VirtualizingPanel 四件套承担，
-        // 集合整体替换后 ListBox 只实例化可见容器，不会全量渲染。
-        if (string.IsNullOrWhiteSpace(SearchText))
+        // 整体替换集合（而非逐条 Clear/Add）：只触发一次 CollectionChanged，
+        // ListBox 虚拟化下一次重建，避免几千条字幕的通知风暴卡顿 UI。
+        // 虚拟化由 XAML 侧 ScrollViewer.CanContentScroll + VirtualizingPanel 四件套承担。
+        List<SubtitleEntry> result;
+        if (keyword.Length == 0)
         {
-            // 无搜索时直接拷贝源集合一次（零逐条通知；源集合一次枚举即可）
-            FilteredEntries = new ObservableCollection<SubtitleEntry>(source);
+            result = new List<SubtitleEntry>(part.Entries);
         }
         else
         {
-            var keyword = SearchText.Trim();
-            var filtered = new List<SubtitleEntry>();
-            foreach (var e in source)
-            {
-                if (e.Text.IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0)
-                    filtered.Add(e);
-            }
-            FilteredEntries = new ObservableCollection<SubtitleEntry>(filtered);
+            var kw = keyword;
+            result = await Task.Run(() =>
+                part.Entries
+                    .Where(e => e.Text.IndexOf(kw, StringComparison.OrdinalIgnoreCase) >= 0)
+                    .ToList());
         }
 
+        // 完成时用户已切走（分P 或搜索词变化）则丢弃本次结果
+        if (SelectedPart != part || (SearchText ?? string.Empty).Trim() != keyword)
+            return;
+
+        FilteredEntries = new ObservableCollection<SubtitleEntry>(result);
         OnPropertyChanged(nameof(FilteredCount));
     }
 

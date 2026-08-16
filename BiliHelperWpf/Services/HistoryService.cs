@@ -11,20 +11,20 @@ namespace BiliHelperWpf.Services;
 /// <summary>
 /// 管理历史记录的 JSON 文件存储。
 ///
-/// 目录结构:
+/// 目录结构（分P 拆分：index + parts，字幕按分P 懒加载）:
 ///   history/
 ///   ├── 20260728/
 ///   │   ├── BV1sC516rEQs/
-///   │   │   └── raw.json          ← 原始字幕
-///   │   └── BV116w5zuEbo/
-///   │       └── raw.json
-///   ├── 20260727/
-///   │   └── BVxxxxxxx/
-///   │       └── raw.json
+///   │   │   ├── index.json          ← 轻量：Meta 元信息 + Parts 分P 索引（无 entries）
+///   │   │   ├── parts/
+///   │   │   │   ├── 001.json        ← 单分P：元信息 + entries 字幕
+///   │   │   │   └── 002.json
+///   │   │   └── read.json           ← AI 阅读数据（分P 增量，与旧版一致）
+///   │   └── ...
 ///   └── ...
 ///
-/// 日期文件夹（YYYYMMDD）为索引，BV 文件夹内可扩展多种字幕文件。
-/// 不需要单独的 index.json，文件夹本身就是索引。
+/// 日期文件夹（YYYYMMDD）为索引，BV 文件夹内 index+parts 结构。
+/// 旧版单文件 raw.json（{meta, data}）仍可读（读端兼容），重新 fetch 后自动升级为拆分格式。
 /// </summary>
 public static class HistoryService
 {
@@ -35,6 +35,21 @@ public static class HistoryService
     /// AI 多个分P 并行整理完成时，防止并发写导致的丢数据。
     /// </summary>
     private static readonly object _readFileLock = new();
+
+    /// <summary>
+    /// 无 BOM 的 UTF-8 编码。.NET 的 Encoding.UTF8 静态属性默认带 BOM（EF BB BF），
+    /// Python 侧按 utf-8 读取会报错或产生首条数据脏字符，统一用无 BOM 编码写入。
+    /// </summary>
+    private static readonly System.Text.Encoding Utf8NoBom = new System.Text.UTF8Encoding(false);
+
+    /// <summary>
+    /// index.json 的磁盘结构（PascalCase，与全项目存储命名一致）。
+    /// </summary>
+    internal sealed class IndexFile
+    {
+        public HistoryItem Meta { get; init; } = new();
+        public List<PartMeta> Parts { get; init; } = [];
+    }
 
     static HistoryService()
     {
@@ -62,16 +77,6 @@ public static class HistoryService
     }
 
     /// <summary>
-    /// 获取某条记录中 raw 字幕的完整文件路径。
-    /// 格式: history/YYYYMMDD/BVxxx/raw.json
-    /// </summary>
-    private static string GetDataPath(string dateKey, string bvId)
-    {
-        var dir = Path.Combine(HistoryDir, dateKey, bvId);
-        return Path.Combine(dir, "raw.json");
-    }
-
-    /// <summary>
     /// 获取某天文件夹路径。
     /// </summary>
     private static string GetDateDirPath(string dateKey)
@@ -80,33 +85,104 @@ public static class HistoryService
     }
 
     /// <summary>
-    /// 检查某个 BV ID 是否已有历史记录（扫描所有日期文件夹）。
+    /// 删除所有日期目录下同 BV 的重复目录（保留 keepDir）。
     /// </summary>
-    public static bool Exists(string bvId)
+    private static void CleanupDuplicateBvDirs(string bvId, string keepDir)
     {
-        return FindByBvId(bvId) != null;
+        if (!Directory.Exists(HistoryDir))
+            return;
+
+        foreach (var dateDir in Directory.GetDirectories(HistoryDir))
+        {
+            var dup = Path.Combine(dateDir, bvId);
+            if (string.Equals(dup, keepDir, StringComparison.OrdinalIgnoreCase))
+                continue;
+            if (!Directory.Exists(dup))
+                continue;
+            try
+            {
+                Directory.Delete(dup, recursive: true);
+                App.Log($"清理重复历史目录: {dup}");
+            }
+            catch (Exception ex)
+            {
+                App.Log($"清理重复历史目录失败: {ex.Message}");
+            }
+        }
     }
 
+    private static JsonSerializerOptions SerializerOptions() => new()
+    {
+        WriteIndented = true,
+        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+    };
+
+    // ─────────────────────────────────────────────────────────────
+    // 路径定位
+    // ─────────────────────────────────────────────────────────────
+
     /// <summary>
-    /// 在所有日期文件夹中搜索指定 BV ID 的文件路径。
+    /// 在所有日期文件夹中搜索指定 BV 的视频目录，返回目录路径或 null。
+    /// 目录存在即视为有记录（无论里面是旧 raw.json 还是新 index.json）。
+    /// 同一 BV 可能因重复拉取存在于多个日期目录 —— 固定取最新日期目录
+    /// （YYYYMMDD 字符串序即时间序），保证 read.json / parts 定位不分裂。
     /// </summary>
-    private static string? FindByBvId(string bvId)
+    private static string? FindVideoDir(string bvId)
     {
         if (!Directory.Exists(HistoryDir))
             return null;
 
-        foreach (var dateDir in Directory.GetDirectories(HistoryDir))
+        foreach (var dateDir in Directory.GetDirectories(HistoryDir).OrderByDescending(d => d))
         {
             var dirPath = Path.Combine(dateDir, bvId);
-            var filePath = Path.Combine(dirPath, "raw.json");
-            if (File.Exists(filePath))
-                return filePath;
+            if (Directory.Exists(dirPath))
+                return dirPath;
         }
         return null;
     }
 
     /// <summary>
-    /// 从流式加载完成的数据创建历史记录，保存到磁盘。
+    /// 旧版单文件 raw.json 路径（仅兼容旧数据时用）；新格式不存在该文件。
+    /// </summary>
+    public static string? FindRawJson(string bvId)
+    {
+        var dir = FindVideoDir(bvId);
+        if (dir == null) return null;
+        var f = Path.Combine(dir, "raw.json");
+        return File.Exists(f) ? f : null;
+    }
+
+    /// <summary>
+    /// 定位某分P 的 parts/NNN.json 完整路径；不存在返回 null。
+    /// 供 AiReadService 定位单分P 字幕文件（--part-file 契约）。
+    /// </summary>
+    public static string? FindPartJson(string bvId, int partNumber)
+    {
+        var dir = FindVideoDir(bvId);
+        if (dir == null) return null;
+        var f = Path.Combine(dir, "parts", $"{partNumber:D3}.json");
+        return File.Exists(f) ? f : null;
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // 查询
+    // ─────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// 检查某个 BV ID 是否已有历史记录（扫描所有日期文件夹）。
+    /// </summary>
+    public static bool Exists(string bvId)
+    {
+        return FindVideoDir(bvId) != null;
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // 写入（fetch 完成后）
+    // ─────────────────────────────────────────────────────────────
+
+    /// <summary>
+    /// 从流式加载完成的数据创建历史记录：写 index.json（元信息 + 分P 索引）
+    /// + parts/NNN.json（每分P 字幕），并删除旧的单文件 raw.json（升级）。
     /// </summary>
     public static void SaveFromVideoInfo(BiliVideoInfo info)
     {
@@ -114,14 +190,14 @@ public static class HistoryService
             return;
 
         var now = DateTime.Now;
-        var dateKey = now.ToString("yyyyMMdd");
-        var dir = GetDateDirPath(dateKey);
-
-        var saveDir = Path.Combine(dir, info.BvId);
+        var saveDir = Path.Combine(GetDateDirPath(now.ToString("yyyyMMdd")), info.BvId);
         try { Directory.CreateDirectory(saveDir); }
         catch { return; }
 
-        // 构建设 HistoryItem 元数据
+        // 清理同一 BV 的历史旧目录：重复拉取会写新日期目录，旧目录会变成僵尸
+        // （历史列表重复条目 + read.json/parts 定位歧义），统一清理旧目录。
+        CleanupDuplicateBvDirs(info.BvId, saveDir);
+
         var item = new HistoryItem
         {
             BvId = info.BvId,
@@ -132,55 +208,143 @@ public static class HistoryService
             FetchTimeIso = now.ToString("yyyy-MM-ddTHH:mm:ss"),
         };
 
-        // 保存完整视频数据（嵌入元信息，方便加载和展示）
-        var dataToSave = new
+        var opt = SerializerOptions();
+        var partMetas = info.Parts.Select(p => new PartMeta
         {
-            meta = item,
-            data = info
-        };
+            PartNumber = p.PartNumber,
+            PartTitle = p.PartTitle,
+            Duration = p.Duration,
+            SubtitleCount = p.SubtitleCount,
+            SubtitleSource = p.SubtitleSource,
+            SubtitleLang = p.SubtitleLang,
+        }).ToList();
 
-        var options = new JsonSerializerOptions
-        {
-            WriteIndented = true,
-            Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-        };
-
-        var json = JsonSerializer.Serialize(dataToSave, options);
-        var filePath = Path.Combine(saveDir, "raw.json");
-
+        // ── index.json ───────────────────────────────────────
+        var index = new IndexFile { Meta = item, Parts = partMetas };
         try
         {
-            File.WriteAllText(filePath, json, System.Text.Encoding.UTF8);
-            App.Log($"历史记录已保存: {filePath}");
+            File.WriteAllText(
+                Path.Combine(saveDir, "index.json"),
+                JsonSerializer.Serialize(index, opt),
+                Utf8NoBom);
         }
         catch (Exception ex)
         {
-            App.Log($"保存历史数据失败: {ex.Message}");
+            App.Log($"保存 index.json 失败: {ex.Message}");
+            return;
         }
+
+        // ── parts/NNN.json ───────────────────────────────────
+        var partsDir = Path.Combine(saveDir, "parts");
+        try { Directory.CreateDirectory(partsDir); }
+        catch (Exception ex)
+        {
+            App.Log($"创建 parts 目录失败: {ex.Message}");
+            return;
+        }
+
+        int savedParts = 0;
+        foreach (var p in info.Parts)
+        {
+            try
+            {
+                File.WriteAllText(
+                    Path.Combine(partsDir, $"{p.PartNumber:D3}.json"),
+                    JsonSerializer.Serialize(p, opt),
+                    Utf8NoBom);
+                savedParts++;
+            }
+            catch (Exception ex)
+            {
+                App.Log($"保存分P {p.PartNumber} 失败: {ex.Message}");
+            }
+        }
+
+        // ── 删除旧 raw.json（升级为拆分格式）─────────────────
+        var oldRaw = Path.Combine(saveDir, "raw.json");
+        if (File.Exists(oldRaw))
+        {
+            try { File.Delete(oldRaw); }
+            catch { /* 删不掉不影响，读端仍兼容两者 */ }
+        }
+
+        App.Log($"历史记录已保存: {saveDir} (index.json + parts/{savedParts})");
     }
 
+    // ─────────────────────────────────────────────────────────────
+    // 读取
+    // ─────────────────────────────────────────────────────────────
+
     /// <summary>
-    /// 从本地文件加载完整的 BiliVideoInfo。
+    /// 从本地加载视频（返回分P 元信息，entries 不加载，由调用方懒加载）。
+    /// 兼容旧版单文件 raw.json。
     /// </summary>
     public static BiliVideoInfo? LoadVideo(string bvId)
     {
-        var filePath = FindByBvId(bvId);
-        if (filePath == null)
+        var dir = FindVideoDir(bvId);
+        if (dir == null)
+            return null;
+
+        var indexPath = Path.Combine(dir, "index.json");
+        if (File.Exists(indexPath))
+        {
+            try
+            {
+                var json = File.ReadAllText(indexPath, Utf8NoBom);
+                var idx = JsonSerializer.Deserialize<IndexFile>(json);
+                if (idx == null || string.IsNullOrEmpty(idx.Meta.BvId))
+                    return null;
+
+                var info = new BiliVideoInfo
+                {
+                    Status = idx.Meta.Status,
+                    BvId = idx.Meta.BvId,
+                    Title = idx.Meta.Title,
+                    TotalParts = idx.Meta.TotalParts,
+                };
+
+                foreach (var pm in idx.Parts)
+                {
+                    info.Parts.Add(new PartInfo
+                    {
+                        PartNumber = pm.PartNumber,
+                        PartTitle = pm.PartTitle,
+                        Duration = pm.Duration,
+                        SubtitleCount = pm.SubtitleCount,
+                        SubtitleSource = pm.SubtitleSource,
+                        SubtitleLang = pm.SubtitleLang,
+                        // 无字幕分P 无需懒加载，直接标记已加载
+                        EntriesLoaded = pm.SubtitleCount == 0,
+                    });
+                }
+                return info;
+            }
+            catch (Exception ex)
+            {
+                App.Log($"加载 index.json 失败: {ex.Message}");
+                return null;
+            }
+        }
+
+        // 兼容旧格式（raw.json：{meta, data} 或直接 BiliVideoInfo）
+        var rawPath = FindRawJson(bvId);
+        if (rawPath == null)
             return null;
 
         try
         {
-            var json = File.ReadAllText(filePath, System.Text.Encoding.UTF8);
-
-            // 尝试解析新格式（有 meta 包裹）
+            var json = File.ReadAllText(rawPath, Utf8NoBom);
             using var doc = JsonDocument.Parse(json);
             if (doc.RootElement.TryGetProperty("data", out var dataElem))
             {
-                return JsonSerializer.Deserialize<BiliVideoInfo>(dataElem.GetRawText());
+                var info = JsonSerializer.Deserialize<BiliVideoInfo>(dataElem.GetRawText());
+                MarkAllEntriesLoaded(info);
+                return info;
             }
 
-            // 兼容旧格式（直接就是 BiliVideoInfo）
-            return JsonSerializer.Deserialize<BiliVideoInfo>(json);
+            var legacy = JsonSerializer.Deserialize<BiliVideoInfo>(json);
+            MarkAllEntriesLoaded(legacy);
+            return legacy;
         }
         catch (Exception ex)
         {
@@ -190,31 +354,55 @@ public static class HistoryService
     }
 
     /// <summary>
-    /// 查找指定 BV ID 的 raw.json 完整路径（扫描所有日期文件夹）。
-    /// 目录结构: history/YYYYMMDD/BVxxx/raw.json；不存在返回 null。
+    /// 旧格式一次性读全量时，标记所有分P entries 已加载。
     /// </summary>
-    public static string? FindRawJson(string bvId)
+    private static void MarkAllEntriesLoaded(BiliVideoInfo? info)
     {
-        return FindByBvId(bvId);
+        if (info == null) return;
+        foreach (var p in info.Parts)
+            p.EntriesLoaded = true;
     }
 
     /// <summary>
-    /// 加载指定 BV ID 的 AI 阅读数据（read.json）。
+    /// 懒加载单个分P 的字幕 entries（读 parts/NNN.json）。
+    /// 返回 null 表示加载失败（无该文件或解析错误）。
+    /// </summary>
+    public static List<SubtitleEntry>? LoadPartEntries(string bvId, int partNumber)
+    {
+        var partFile = FindPartJson(bvId, partNumber);
+        if (partFile == null)
+            return null;
+
+        try
+        {
+            var json = File.ReadAllText(partFile, Utf8NoBom);
+            var part = JsonSerializer.Deserialize<PartInfo>(json);
+            return part?.Entries?.ToList() ?? [];
+        }
+        catch (Exception ex)
+        {
+            App.Log($"加载分P {partNumber} 字幕失败: {ex.Message}");
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// 加载指定 BV ID 的 AI 阅读数据（read.json），与 index/parts 同目录。
     /// 返回 parts 列表（仅包含已整理的分P）；无 read.json 或解析失败返回 null。
     /// </summary>
     public static List<ReadPartData>? LoadReadParts(string bvId)
     {
-        var rawPath = FindByBvId(bvId);
-        if (rawPath == null)
+        var dir = FindVideoDir(bvId);
+        if (dir == null)
             return null;
 
-        var readPath = Path.Combine(Path.GetDirectoryName(rawPath)!, "read.json");
+        var readPath = Path.Combine(dir, "read.json");
         if (!File.Exists(readPath))
             return null;
 
         try
         {
-            var json = File.ReadAllText(readPath, System.Text.Encoding.UTF8);
+            var json = File.ReadAllText(readPath, Utf8NoBom);
             using var doc = JsonDocument.Parse(json);
             if (doc.RootElement.TryGetProperty("parts", out var partsElem)
                 && partsElem.ValueKind == JsonValueKind.Array)
@@ -231,18 +419,15 @@ public static class HistoryService
     }
 
     /// <summary>
-    /// 增量保存单个分P 的 AI 阅读数据到 read.json。
-    /// 与 raw.json 同目录（history/YYYYMMDD/BVxxx/read.json）。
+    /// 增量保存单个分P 的 AI 阅读数据到 read.json（与 index/parts 同目录）。
     /// 已存在相同分P 时替换，其余分P 保留。
     /// </summary>
     public static void SaveReadPart(string bvId, ReadPartData part)
     {
-        var rawPath = FindByBvId(bvId);
-        if (rawPath == null || part == null)
-            return;
+        if (part == null) return;
 
-        var dir = Path.GetDirectoryName(rawPath);
-        if (string.IsNullOrEmpty(dir))
+        var dir = FindVideoDir(bvId);
+        if (dir == null)
             return;
 
         var readPath = Path.Combine(dir, "read.json");
@@ -256,18 +441,12 @@ public static class HistoryService
             parts.Sort((a, b) => a.PartNumber.CompareTo(b.PartNumber));
 
             var dataToSave = new { parts };
-            var options = new JsonSerializerOptions
-            {
-                WriteIndented = true,
-                Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-            };
-
             try
             {
                 File.WriteAllText(
                     readPath,
-                    JsonSerializer.Serialize(dataToSave, options),
-                    System.Text.Encoding.UTF8);
+                    JsonSerializer.Serialize(dataToSave, SerializerOptions()),
+                    Utf8NoBom);
                 App.Log($"阅读数据已保存: {readPath}");
             }
             catch (Exception ex)
@@ -277,8 +456,13 @@ public static class HistoryService
         }
     }
 
+    // ─────────────────────────────────────────────────────────────
+    // 历史列表
+    // ─────────────────────────────────────────────────────────────
+
     /// <summary>
     /// 加载所有历史记录，按日期分组（倒序）、组内按时间倒序。
+    /// 新格式只读 index.json（轻量），旧格式回退读 raw.json。
     /// </summary>
     public static List<HistoryGroup> LoadGroups()
     {
@@ -287,7 +471,6 @@ public static class HistoryService
         if (!Directory.Exists(HistoryDir))
             return groups;
 
-        // 获取所有日期文件夹，按名称倒序（最新的日期在前）
         var dateDirs = Directory.GetDirectories(HistoryDir)
             .Select(d => new DirectoryInfo(d))
             .Where(d => Regex.IsMatch(d.Name, @"^\d{8}$"))  // 只认 YYYYMMDD 格式
@@ -296,14 +479,12 @@ public static class HistoryService
 
         foreach (var dateDir in dateDirs)
         {
-            var dateKey = dateDir.Name;
             var group = new HistoryGroup
             {
-                DateKey = dateKey,
-                GroupTitle = FormatDateGroup(dateKey),
+                DateKey = dateDir.Name,
+                GroupTitle = FormatDateGroup(dateDir.Name),
             };
 
-            // 获取该日期下所有 BV 子目录，按子目录修改时间倒序
             var bvDirs = Directory.GetDirectories(dateDir.FullName)
                 .Select(d => new DirectoryInfo(d))
                 .OrderByDescending(d => d.LastWriteTime)
@@ -311,14 +492,25 @@ public static class HistoryService
 
             foreach (var bvDir in bvDirs)
             {
-                var rawFile = Path.Combine(bvDir.FullName, "raw.json");
-                if (!File.Exists(rawFile))
-                    continue;
-
                 try
                 {
-                    var json = File.ReadAllText(rawFile, System.Text.Encoding.UTF8);
-                    using var doc = JsonDocument.Parse(json);
+                    var indexPath = Path.Combine(bvDir.FullName, "index.json");
+                    if (File.Exists(indexPath))
+                    {
+                        var json = File.ReadAllText(indexPath, Utf8NoBom);
+                        var idx = JsonSerializer.Deserialize<IndexFile>(json);
+                        if (idx?.Meta != null && !string.IsNullOrEmpty(idx.Meta.BvId))
+                            group.Items.Add(idx.Meta);
+                        continue;
+                    }
+
+                    // 旧格式 raw.json
+                    var rawFile = Path.Combine(bvDir.FullName, "raw.json");
+                    if (!File.Exists(rawFile))
+                        continue;
+
+                    var rawJson = File.ReadAllText(rawFile, Utf8NoBom);
+                    using var doc = JsonDocument.Parse(rawJson);
 
                     if (doc.RootElement.TryGetProperty("meta", out var metaElem))
                     {
@@ -326,24 +518,20 @@ public static class HistoryService
                         if (item != null)
                             group.Items.Add(item);
                     }
-                    else
+                    else if (doc.RootElement.TryGetProperty("data", out var dataElem))
                     {
-                        // 兼容旧格式（直接是 BiliVideoInfo，嵌套在 data 字段里）
-                        if (doc.RootElement.TryGetProperty("data", out var dataElem))
+                        var info = JsonSerializer.Deserialize<BiliVideoInfo>(dataElem.GetRawText());
+                        if (info != null)
                         {
-                            var info = JsonSerializer.Deserialize<BiliVideoInfo>(dataElem.GetRawText());
-                            if (info != null)
+                            group.Items.Add(new HistoryItem
                             {
-                                group.Items.Add(new HistoryItem
-                                {
-                                    BvId = info.BvId,
-                                    Title = info.Title,
-                                    TotalParts = info.TotalParts,
-                                    TotalSubtitles = info.TotalSubtitleCount,
-                                    Status = info.Status,
-                                    FetchTimeIso = bvDir.LastWriteTime.ToString("yyyy-MM-ddTHH:mm:ss"),
-                                });
-                            }
+                                BvId = info.BvId,
+                                Title = info.Title,
+                                TotalParts = info.TotalParts,
+                                TotalSubtitles = info.TotalSubtitleCount,
+                                Status = info.Status,
+                                FetchTimeIso = bvDir.LastWriteTime.ToString("yyyy-MM-ddTHH:mm:ss"),
+                            });
                         }
                     }
                 }
@@ -365,19 +553,15 @@ public static class HistoryService
     /// </summary>
     public static void Delete(string bvId)
     {
-        var filePath = FindByBvId(bvId);
-        if (filePath == null) return;
+        var dir = FindVideoDir(bvId);
+        if (dir == null) return;
 
         try
         {
-            var bvDir = Path.GetDirectoryName(filePath);
-            if (bvDir != null && Directory.Exists(bvDir))
-            {
-                Directory.Delete(bvDir, recursive: true);
-            }
+            Directory.Delete(dir, recursive: true);
 
             // 如果日期文件夹为空，一起删除
-            var dateDir = Path.GetDirectoryName(bvDir);
+            var dateDir = Path.GetDirectoryName(dir);
             if (dateDir != null && Directory.Exists(dateDir) && !Directory.EnumerateFileSystemEntries(dateDir).Any())
             {
                 Directory.Delete(dateDir);

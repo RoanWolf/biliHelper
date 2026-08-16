@@ -1,12 +1,14 @@
 """
-analyze_sub.py — 分析字幕 JSON，输出元信息、全文本和时间轴采样。
+analyze_sub.py — 分析字幕数据（新格式 index.json + parts/），输出元信息、全文本和时间轴采样。
+
+独立诊断工具，不属于 WPF 管线（WPF 通过 stdout JSONL 与 Python 交互，不经过本脚本）。
 
 用法:
-    python analyze_sub.py <raw_json_path> [--output-dir <dir>] [--interval <seconds>]
+    python analyze_sub.py <BV目录路径> [--part N] [--output-dir <dir>] [--interval <seconds>]
 
 示例:
-    python analyze_sub.py notes/OS-2026/raw/13_raw.json
-    python analyze_sub.py notes/OS-2026/raw/13_raw.json --interval 120
+    python analyze_sub.py BiliHelperWpf/history/20260816/BV1DD4y127r4
+    python analyze_sub.py BiliHelperWpf/history/20260816/BV1DD4y127r4 --interval 120
 """
 
 from __future__ import annotations
@@ -16,47 +18,89 @@ import json
 from pathlib import Path
 
 
+def _load(bv_dir: Path) -> tuple[dict, list[dict]]:
+    """读新格式 index.json + parts/NNN.json。
+
+    Returns:
+        (meta, parts) — parts 为 [{meta: {PartNumber, PartTitle, Duration, ...}, entries: [...]}]。
+    """
+    idx = json.loads((bv_dir / "index.json").read_text(encoding="utf-8"))
+    meta = idx.get("Meta") or {}
+    parts: list[dict] = []
+    for pm in idx.get("Parts") or []:
+        pn = pm.get("PartNumber")
+        part_file = bv_dir / "parts" / f"{pn:03d}.json"
+        part = {}
+        if part_file.is_file():
+            part = json.loads(part_file.read_text(encoding="utf-8"))
+        parts.append(
+            {
+                "meta": {
+                    **pm,
+                    "PartTitle": pm.get("PartTitle") or part.get("PartTitle") or "",
+                },
+                "entries": part.get("Entries") or [],
+            }
+        )
+    return meta, parts
+
+
 def analyze(
-    json_path: str | Path,
+    bv_dir: str | Path,
     output_dir: str | Path = "temp",
     interval: float = 150.0,
+    part_number: int | None = None,
 ) -> None:
-    json_path = Path(json_path)
+    bv_dir = Path(bv_dir)
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    with json_path.open(encoding="utf-8") as f:
-        data = json.load(f)
+    meta, parts = _load(bv_dir)
 
     # ── 元信息 ────────────────────────────────────
-    print(f"Title: {data['title']}")
-    print(f"BV: {data['bv_id']}")
-    print(f"Total parts: {data['total_parts']}")
+    print(f"Title: {meta.get('Title')}")
+    print(f"BV: {meta.get('BvId')}")
+    print(f"Total parts: {meta.get('TotalParts')}")
 
-    for p in data["parts"]:
-        duration = p["duration"]
-        count = p.get("subtitle_count", 0)
-        print(f"  Part: {p['part_title']}")
+    for p in parts:
+        m = p["meta"]
+        duration = m.get("Duration") or 0
+        count = m.get("SubtitleCount") or 0
+        print(f"  Part: P{m.get('PartNumber')} {m.get('PartTitle')}")
         print(f"  Duration: {duration:.0f}s ({duration / 60:.0f}min)")
         print(f"  Subtitle count: {count}")
 
-    if data["status"] == "empty" or data["total_parts"] == 0:
-        print("\n[WARNING] No subtitles found in this JSON.")
+    if not parts:
+        print("\n[WARNING] 没有分P数据.")
         return
 
-    entries = data["parts"][0].get("entries", [])
+    # ── 选择要分析的分P：--part 指定，否则第一个有字幕的 ──
+    target = None
+    if part_number is not None:
+        for p in parts:
+            if p["meta"].get("PartNumber") == part_number:
+                target = p
+                break
+        if target is None:
+            print(f"\n[WARNING] 找不到分P P{part_number}.")
+            return
+    else:
+        target = next((p for p in parts if p["entries"]), parts[0])
+
+    entries = target["entries"]
+    m = target["meta"]
+    print(f"\n分析分P: P{m.get('PartNumber')} {m.get('PartTitle')} ({len(entries)} 条字幕)")
+
     if not entries:
-        print("\n[WARNING] 'entries' key missing or empty.")
+        print("\n[WARNING] 该分P无字幕.")
         return
-
-    print(f"\nTotal entries: {len(entries)}")
 
     # ── 输出完整文本 ─────────────────────────────
-    stem = json_path.stem  # e.g. "13_raw"
+    stem = f"{meta.get('BvId') or bv_dir.name}_P{m.get('PartNumber')}"
     full_txt = output_dir / f"full_{stem}.txt"
     with full_txt.open("w", encoding="utf-8") as f:
         for e in entries:
-            f.write(f"[{e['start_time']:.1f}s] {e['text']}\n")
+            f.write(f"[{e['StartTime']:.1f}s] {e['Text']}\n")
     print(f"Full text → {full_txt}")
 
     # ── 时间轴采样 ───────────────────────────────
@@ -65,15 +109,14 @@ def analyze(
     print(f"{'═' * 70}")
 
     last_printed = -interval
-    for e in entries:
-        ts = e["start_time"]
+    for i, e in enumerate(entries):
+        ts = e["StartTime"]
         if ts < last_printed + interval:
             continue
 
-        idx = entries.index(e)
-        start_idx = max(0, idx - 2)
-        end_idx = min(len(entries), idx + 3)
-        snippets = [ee["text"] for ee in entries[start_idx:end_idx]]
+        start_idx = max(0, i - 2)
+        end_idx = min(len(entries), i + 3)
+        snippets = [ee["Text"] for ee in entries[start_idx:end_idx]]
         line = " │ ".join(snippets)
         print(f"\n[{ts:.0f}s / {ts / 60:.0f}min]  {line}")
 
@@ -82,9 +125,10 @@ def analyze(
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="分析 BiliHelper 字幕 JSON，输出元信息、全文本和时间轴采样"
+        description="分析 BiliHelper 字幕数据（index.json + parts/），输出元信息、全文本和时间轴采样"
     )
-    parser.add_argument("json_path", help="raw JSON 文件路径")
+    parser.add_argument("bv_dir", help="视频历史目录路径（含 index.json 与 parts/）")
+    parser.add_argument("--part", type=int, default=None, help="要分析的分P 号（默认第一个有字幕的分P）")
     parser.add_argument(
         "-o", "--output-dir", default="temp", help="全文本输出目录 (默认: temp)"
     )
@@ -97,7 +141,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    analyze(args.json_path, output_dir=args.output_dir, interval=args.interval)
+    analyze(args.bv_dir, output_dir=args.output_dir, interval=args.interval, part_number=args.part)
 
 
 if __name__ == "__main__":

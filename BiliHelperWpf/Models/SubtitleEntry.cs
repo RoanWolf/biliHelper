@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace BiliHelperWpf.Models;
 
 /// <summary>
@@ -13,12 +15,16 @@ public class SubtitleEntry
     /// <summary>
     /// 格式化后的时间字符串，如 "00:03.24"。
     /// </summary>
+    [JsonIgnore]
     public string StartTimeFormatted => FormatTime(StartTime);
+
+    [JsonIgnore]
     public string EndTimeFormatted => FormatTime(EndTime);
 
     /// <summary>
     /// 字幕持续时长（秒）。
     /// </summary>
+    [JsonIgnore]
     public double Duration => EndTime - StartTime;
 
     private static string FormatTime(double seconds)

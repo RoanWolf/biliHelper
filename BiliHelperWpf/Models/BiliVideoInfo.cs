@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Text.Json.Serialization;
 
 namespace BiliHelperWpf.Models;
 
@@ -16,6 +17,7 @@ public class BiliVideoInfo
     /// <summary>
     /// 状态的中文描述。
     /// </summary>
+    [JsonIgnore]
     public string StatusDisplay => Status switch
     {
         "ok" => "全部有字幕 ✅",
@@ -27,10 +29,12 @@ public class BiliVideoInfo
     /// <summary>
     /// 总字幕数。
     /// </summary>
+    [JsonIgnore]
     public int TotalSubtitleCount => Parts.Sum(p => p.SubtitleCount);
 
     /// <summary>
     /// 是否有任何字幕数据。
     /// </summary>
+    [JsonIgnore]
     public bool HasAnySubtitle => Parts.Any(p => p.HasSubtitles);
 }

@@ -12,16 +12,6 @@ using BiliHelperWpf.Models;
 namespace BiliHelperWpf.Services;
 
 /// <summary>
-/// AI 整理回调元信息：子进程启动后立即回调（标题、条数等）。
-/// </summary>
-public sealed record AiReadMeta(
-    string BvId,
-    string Title,
-    string PartTitle,
-    int PartNumber,
-    int SubtitleCount);
-
-/// <summary>
 /// AI 阅读版生成服务。
 ///
 /// 启动 Python 子进程 ai_read.py（单分P 一次 DeepSeek 调用），
@@ -65,7 +55,6 @@ public class AiReadService
     /// <summary>
     /// 为指定 BV ID 的指定分P 生成 AI 阅读版。
     ///
-    /// onMeta:    子进程启动后回调元信息（标题、条数等）。
     /// onComplete:AI 整理完成，回调段落列表（调用方负责持久化 read.json）。
     /// onError:   失败回调错误信息（尽量带具体原因）。
     /// progress:  后台进度文本（如 "正在调用 DeepSeek..."）。
@@ -74,29 +63,38 @@ public class AiReadService
     public async Task GenerateReadDataAsync(
         string bvId,
         int partNumber,
-        Action<AiReadMeta>? onMeta = null,
         Action<List<Paragraph>>? onComplete = null,
         Action<string>? onError = null,
         IProgress<string>? progress = null,
         CancellationToken ct = default)
     {
-        // ── 定位 raw.json ──────────────────────────────────────
-        var rawPath = HistoryService.FindRawJson(bvId);
-        if (rawPath == null)
+        // ── 定位分P字幕文件：新格式 parts/NNN.json，旧格式回退 raw.json ──
+        string partArgs;
+        var partFile = HistoryService.FindPartJson(bvId, partNumber);
+        if (partFile != null)
         {
-            onError?.Invoke($"未找到历史数据: {bvId}");
-            App.Log($"AiReadService: 找不到 raw.json, bvId={bvId}");
-            return;
+            partArgs = $"\"{PythonScript}\" --part-file \"{partFile}\"";
+            App.Log($"AiReadService 开始, bvId={bvId}, part={partNumber}, partFile={partFile}");
         }
-
-        App.Log($"AiReadService 开始, bvId={bvId}, part={partNumber}, raw={rawPath}");
+        else
+        {
+            var rawPath = HistoryService.FindRawJson(bvId);
+            if (rawPath == null)
+            {
+                onError?.Invoke($"未找到历史数据: {bvId}");
+                App.Log($"AiReadService: 找不到字幕文件, bvId={bvId}");
+                return;
+            }
+            partArgs = $"\"{PythonScript}\" --raw \"{rawPath}\" --part {partNumber}";
+            App.Log($"AiReadService 开始(旧格式兼容), bvId={bvId}, part={partNumber}, raw={rawPath}");
+        }
         progress?.Report("准备启动 AI 整理...");
 
         // ── 启动子进程 ─────────────────────────────────────────
         var psi = new ProcessStartInfo
         {
             FileName = PythonExe,
-            Arguments = $"\"{PythonScript}\" --raw \"{rawPath}\" --part {partNumber}",
+            Arguments = partArgs,
             WorkingDirectory = RepoRoot,
             UseShellExecute = false,
             RedirectStandardOutput = true,
@@ -148,7 +146,7 @@ public class AiReadService
                 App.Log($"AiReadService: stdout {trimmedOut}");
                 try
                 {
-                    ParseLine(line, onMeta, onComplete);
+                    ParseLine(line, onComplete);
                 }
                 catch (JsonException ex)
                 {
@@ -277,7 +275,6 @@ public class AiReadService
 
     private static void ParseLine(
         string line,
-        Action<AiReadMeta>? onMeta,
         Action<List<Paragraph>>? onComplete)
     {
         using var doc = JsonDocument.Parse(line);
@@ -288,14 +285,9 @@ public class AiReadService
         {
             case "meta":
                 {
-                    var meta = new AiReadMeta(
-                        BvId: root.GetProperty("bv_id").GetString() ?? "",
-                        Title: root.GetProperty("title").GetString() ?? "",
-                        PartTitle: root.GetProperty("part_title").GetString() ?? "",
-                        PartNumber: root.GetProperty("part_number").GetInt32(),
-                        SubtitleCount: root.GetProperty("subtitle_count").GetInt32());
-                    App.Log($"AiReadService: 收到 meta, bvId={meta.BvId}, part={meta.PartNumber}, 条数={meta.SubtitleCount}");
-                    onMeta?.Invoke(meta);
+                    // 元信息仅日志（WPF 侧启动整理前已具备 bvId/分P 上下文，无消费者）
+                    App.Log($"AiReadService: 收到 meta, part={root.GetProperty("part_number").GetInt32()}, "
+                            + $"条数={root.GetProperty("subtitle_count").GetInt32()}");
                     break;
                 }
 

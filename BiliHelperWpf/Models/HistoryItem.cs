@@ -1,4 +1,5 @@
 using System;
+using System.Text.Json.Serialization;
 
 namespace BiliHelperWpf.Models;
 
@@ -36,6 +37,7 @@ public class HistoryItem
     /// 日期分组键，格式 "YYYYMMDD"。
     /// 用于文件夹命名和 UI 分组。
     /// </summary>
+    [JsonIgnore]
     public string DateKey => FetchTimeIso.Length >= 10
         ? FetchTimeIso[..10].Replace("-", "")
         : "unknown";
@@ -43,11 +45,13 @@ public class HistoryItem
     // ── 展示用计算属性 ────────────────────────────────────
 
     /// <summary>标题截断（过长时）。</summary>
+    [JsonIgnore]
     public string DisplayTitle => Title.Length > 50 ? Title[..47] + "..." : Title;
 
     /// <summary>
     /// 日期分组标题，如 "2026年07月28日"。
     /// </summary>
+    [JsonIgnore]
     public string DateGroup
     {
         get
@@ -62,6 +66,7 @@ public class HistoryItem
     /// <summary>
     /// 时间，如 "14:23"。
     /// </summary>
+    [JsonIgnore]
     public string TimeStr
     {
         get
@@ -72,6 +77,7 @@ public class HistoryItem
     }
 
     /// <summary>状态灯中文描述。</summary>
+    [JsonIgnore]
     public string StatusDisplay => Status switch
     {
         "ok" => "有字幕",
@@ -81,6 +87,7 @@ public class HistoryItem
     };
 
     /// <summary>摘要，如 "29P · 87条字幕"。</summary>
+    [JsonIgnore]
     public string Summary
     {
         get
@@ -92,16 +99,4 @@ public class HistoryItem
             return $"{parts} · {subs} · {StatusDisplay}";
         }
     }
-
-    // ── 文件系统相关 ──────────────────────────────────────
-
-    /// <summary>
-    /// 对应的 JSON 数据文件名（不含路径）。
-    /// </summary>
-    public string DataFileName => $"{BvId}.json";
-
-    /// <summary>
-    /// 日期文件夹名。
-    /// </summary>
-    public string DateFolderName => DateKey;
 }

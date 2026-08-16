@@ -44,6 +44,7 @@ import json
 import logging
 import os
 import re
+import shutil
 import subprocess
 import tempfile
 from pathlib import Path
@@ -106,13 +107,35 @@ def _run_ytdlp(args: list[str], timeout: int = 120) -> subprocess.CompletedProce
         raise BiliHelperError(f"找不到 yt-dlp: {_YTDLP}\n请先运行: uv sync") from None
 
 
-def _cookies_arg(cookies: str | None = None) -> list[str]:
+def _cookies_arg(cookies: str | None = None) -> tuple[list[str], Path | None]:
+    """返回 (yt-dlp cookies 参数, 临时副本路径或 None)。
+
+    cookies 文件复制到临时副本再传给 yt-dlp：yt-dlp close() 会无条件写回
+    --cookies 指向的文件，直接传正式 cookies.txt 的话，写失败（只读/被占用）
+    会让整次抓取崩溃，还会改写 auth.py 原子维护的正式文件 —— 副本隔离两者。
+    文件不存在时不传任何 cookie（匿名抓取）；不回退 --cookies-from-browser
+    （该参数期望浏览器名，收到路径会直接报错）。
+    """
     if cookies is None:
-        return []
+        return [], None
     p = Path(cookies)
-    if p.is_file():
-        return ["--cookies", str(p)]
-    return ["--cookies-from-browser", cookies]
+    if not p.is_file():
+        return [], None
+    fd, tmp_name = tempfile.mkstemp(prefix="bilihelper_cookie_", suffix=".txt")
+    os.close(fd)
+    tmp = Path(tmp_name)
+    shutil.copyfile(p, tmp)
+    return ["--cookies", str(tmp)], tmp
+
+
+def _discard_cookie_tmp(tmp: Path | None) -> None:
+    """删除临时 cookies 副本（尽力而为）。"""
+    if tmp is None:
+        return
+    try:
+        tmp.unlink(missing_ok=True)
+    except OSError:
+        pass
 
 
 def _ts(h: str, m: str, s: str, ms: str) -> float:
@@ -171,9 +194,11 @@ def get_parts(url: str, cookies: str | None = None) -> tuple[list[dict], str]:
     """
     url = _normalize_url(url)
     args = ["--flat-playlist", "--dump-json", "--skip-download", "--yes-playlist"]
-    args += _cookies_arg(cookies) + [url]
-
-    result = _run_ytdlp(args)
+    cookie_args, cookie_tmp = _cookies_arg(cookies)
+    try:
+        result = _run_ytdlp(args + cookie_args + [url])
+    finally:
+        _discard_cookie_tmp(cookie_tmp)
 
     if result.returncode != 0:
         stderr = result.stderr or ""
@@ -255,6 +280,7 @@ def get_subtitles(
         # 模板: yt-dlp 产出 001_BVxxxxx.ai-zh.srt 这类文件
         tmpl = str(Path(tmpdir) / "%(playlist_index)03d_%(display_id)s")
 
+        cookie_args, cookie_tmp = _cookies_arg(cookies)
         dl_args = (
             [
                 "--write-subs",
@@ -269,13 +295,16 @@ def get_subtitles(
                 "-o",
                 tmpl,
             ]
-            + _cookies_arg(cookies)
+            + cookie_args
             + [url]
         )
 
         # 多P 视频需要更长的超时（每P 约 3-5秒）
         dl_timeout = max(120, total_parts * 10)
-        _run_ytdlp(dl_args, timeout=dl_timeout)
+        try:
+            _run_ytdlp(dl_args, timeout=dl_timeout)
+        finally:
+            _discard_cookie_tmp(cookie_tmp)
 
         # ── Step 3: 解析下载的 SRT 文件 ───────────────────────────
         # 按 part_number 分组: {1: [("zh", entries)], 2: [("en", entries)], ...}
@@ -290,7 +319,7 @@ def get_subtitles(
             except ValueError:
                 part_num = 1  # fallback
 
-            srt_text = f.read_text(encoding="utf-8")
+            srt_text = f.read_text(encoding="utf-8-sig")
             entries = parse_srt(srt_text)
             if entries:
                 sub_by_part.setdefault(part_num, []).append((lang, entries))
@@ -425,6 +454,8 @@ def get_subtitles_stream(
     any_subs = False
     all_subs = True
 
+    cookie_args, cookie_tmp = _cookies_arg(cookies)
+
     with tempfile.TemporaryDirectory(prefix="bili_helper_") as tmpdir:
         for pi in parts_info:
             pn = pi["part_number"]
@@ -436,7 +467,7 @@ def get_subtitles_stream(
             try:
                 dump_args = (
                     ["--dump-json", "--skip-download"]
-                    + _cookies_arg(cookies)
+                    + cookie_args
                     + [part_url]
                 )
                 dump_result = _run_ytdlp(dump_args, timeout=30)
@@ -469,7 +500,7 @@ def get_subtitles_stream(
                     "-o",
                     tmpl,
                 ]
-                + _cookies_arg(cookies)
+                + cookie_args
                 + [part_url]
             )
 
@@ -497,7 +528,7 @@ def get_subtitles_stream(
             candidates = []
             for f in Path(tmpdir).glob(f"{pn:03d}_*.srt"):
                 lang = f.stem.rsplit(".", 1)[-1] if "." in f.stem else "unknown"
-                srt_text = f.read_text(encoding="utf-8")
+                srt_text = f.read_text(encoding="utf-8-sig")
                 entries = parse_srt(srt_text)
                 if entries:
                     candidates.append((lang, entries))
@@ -526,6 +557,8 @@ def get_subtitles_stream(
                 all_subs = False
 
             yield part_entry
+
+    _discard_cookie_tmp(cookie_tmp)
 
     if not any_subs:
         status = "empty"

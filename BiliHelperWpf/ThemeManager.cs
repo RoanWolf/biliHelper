@@ -227,12 +227,6 @@ public static class ThemeManager
     }
 
     /// <summary>
-    /// 浅色主题下淡化列表/字幕选中态：ListBox 选中改为淡蓝底 + accent 蓝字，
-    /// 替代 WPF-UI 默认的实心 accent 深蓝底 + 白字（视觉更轻盈）。
-    /// 注意：仅在浅色时注入；切深色时 Remove，避免误伤深色主题
-    /// （深色主题已由 ApplyDarkOverrides 用深灰底 + 白字接管）。
-    /// </summary>
-    /// <summary>
     /// 统一入口：按当前主题类型注入/移除覆盖资源。
     /// 供 Apply() 与"主题一致跳过"路径共用，确保覆盖总能生效。
     /// </summary>

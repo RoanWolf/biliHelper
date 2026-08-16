@@ -234,8 +234,9 @@ def parse_and_validate(result: str | None, subtitle_count: int) -> list[dict]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="单分P AI 阅读版生成")
-    parser.add_argument("--raw", help="raw.json 路径")
+    parser.add_argument("--raw", help="raw.json 路径（旧格式，与 --part 搭配）")
     parser.add_argument("--part", type=int, help="要处理的分P 号")
+    parser.add_argument("--part-file", help="单分P 字幕文件路径（新格式 parts/NNN.json，无需 --raw/--part）")
     parser.add_argument(
         "--test",
         action="store_true",
@@ -254,41 +255,65 @@ def main() -> int:
         emit({"type": "test", "ok": ok, "message": message})
         return 0 if ok else 1
 
-    if not args.raw or args.part is None:
-        print(f"[ERROR] 缺少 --raw / --part 参数", file=sys.stderr)
+    # ── 确定入口：新格式 --part-file，或旧格式 --raw + --part ──
+    if args.part_file:
+        part_path = Path(args.part_file)
+        if not part_path.is_file():
+            print(f"[ERROR] 找不到分P文件: {part_path}", file=sys.stderr)
+            return 1
+        try:
+            part = json.loads(part_path.read_text(encoding="utf-8-sig"))
+        except (json.JSONDecodeError, OSError) as e:
+            print(f"[ERROR] 读取分P文件失败: {e}", file=sys.stderr)
+            return 1
+        entries = part.get("Entries") or []
+        part_title = part.get("PartTitle") or ""
+        # parts/NNN.json 的祖父目录即 BV 目录名
+        bv_id = part_path.parent.parent.name
+        # 视频总标题从同目录 index.json 读取（best-effort，读不到置空不阻塞）
+        title = ""
+        index_path = part_path.parent.parent / "index.json"
+        if index_path.is_file():
+            try:
+                idx = json.loads(index_path.read_text(encoding="utf-8-sig"))
+                title = (idx.get("Meta") or {}).get("Title") or ""
+            except (json.JSONDecodeError, OSError):
+                pass
+        part_no = int(part.get("PartNumber") or part_path.stem)
+    elif args.raw and args.part is not None:
+        raw_path = Path(args.raw)
+
+        if not raw_path.is_file():
+            print(f"[ERROR] 找不到 raw.json: {raw_path}", file=sys.stderr)
+            return 1
+
+        try:
+            video, parts = load_parts(raw_path)
+        except (json.JSONDecodeError, OSError) as e:
+            print(f"[ERROR] 读取 raw.json 失败: {e}", file=sys.stderr)
+            return 1
+
+        if not parts:
+            print("[ERROR] raw.json 中没有分P数据", file=sys.stderr)
+            return 1
+
+        part = find_part(parts, args.part)
+        if part is None:
+            print(f"[ERROR] 找不到分P P{args.part}", file=sys.stderr)
+            return 1
+
+        entries = get_entries(part)
+        bv_id = video.get("BvId") or video.get("bv_id") or raw_path.stem
+        title = video.get("Title") or video.get("title") or ""
+        part_title = part.get("PartTitle") or part.get("part_title") or ""
+        part_no = args.part
+    else:
+        print("[ERROR] 需要 --part-file 或 (--raw + --part) 参数", file=sys.stderr)
         return 1
 
-    raw_path = Path(args.raw)
-
-    # ── 读取 raw.json ─────────────────────────────────────
-    if not raw_path.is_file():
-        print(f"[ERROR] 找不到 raw.json: {raw_path}", file=sys.stderr)
-        return 1
-
-    try:
-        video, parts = load_parts(raw_path)
-    except (json.JSONDecodeError, OSError) as e:
-        print(f"[ERROR] 读取 raw.json 失败: {e}", file=sys.stderr)
-        return 1
-
-    if not parts:
-        print("[ERROR] raw.json 中没有分P数据", file=sys.stderr)
-        return 1
-
-    part = find_part(parts, args.part)
-    if part is None:
-        print(f"[ERROR] 找不到分P P{args.part}", file=sys.stderr)
-        return 1
-
-    entries = get_entries(part)
     if not entries:
-        print(f"[ERROR] P{args.part} 没有字幕条目", file=sys.stderr)
+        print(f"[ERROR] P{part_no} 没有字幕条目", file=sys.stderr)
         return 1
-
-    bv_id = video.get("BvId") or video.get("bv_id") or raw_path.stem
-    title = video.get("Title") or video.get("title") or ""
-    part_title = part.get("PartTitle") or part.get("part_title") or ""
-    part_no = args.part
 
     # ── meta：WPF 收到后即可定位存储路径 ──────────────────
     emit(

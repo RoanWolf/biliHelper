@@ -12,7 +12,7 @@ biliHelper/
 │   ├── main.py                    CLI 入口（字幕抓取）
 │   ├── bili_helper.py             字幕提取核心逻辑（yt-dlp + SRT 解析）
 │   ├── auth.py                    B 站扫码登录 / 探测 / 用户信息（供 WPF 子进程调用，二维码走 base64 不落盘、指纹持久化、cookies 原子写）
-│   ├── analyze_sub.py             字幕分析工具
+│   ├── analyze_sub.py             字幕分析工具（独立诊断，适配 index+parts 新格式）
 │   ├── AiHelper/                   AI 模块（DeepSeek）
 │   │   ├── reading.py             AIClient 封装 + .env 加载
 │   │   └── ai_read.py             单分P AI 润色脚本（供 WPF 子进程调用）
@@ -119,13 +119,13 @@ MainViewModel.GenerateReadAsync()
     ▼
 AiReadService.GenerateReadDataAsync(bvId, partNumber, ...)
     │
-    ├── Process.Start(python.exe, ai_read.py, --raw, raw.json, --part, N)
+    ├── Process.Start(python.exe, ai_read.py, --part-file, parts/NNN.json)
     │   │   启动前 ApplySettings()：把设置窗非空字段注入环境变量
     │   │
     │   │   ╔══════════════════════════════════════════════╗
     │   │   ║         子进程 (Python)                       ║
     │   │   ║                                              ║
-    │   │   ║  ai_read.py  →  读取 raw.json 单分P          ║
+    │   │   ║  ai_read.py  →  读取 parts/NNN.json 单分P    ║
     │   │   ║             →  调 DeepSeek（一次，不分块）   ║
     │   │   ║             →  stdout: {type:meta} {type:complete} ║
     │   │   ║             →  stderr: 进度文本              ║
@@ -160,14 +160,19 @@ WPF 负责，Python 不参与。
 BiliHelperWpf/history/
 ├── 20260730/                    ← 日期文件夹（YYYYMMDD，即索引）
 │   └── BV1f7366GEBe/            ← BV 号目录（天然唯一）
-│       ├── raw.json             ← 原始字幕（含 meta 索引 + data 完整数据）
+│       ├── index.json           ← 元信息 + 分P 索引（轻量，无字幕内容）
+│       ├── parts/
+│       │   └── 001.json         ← 单分P 字幕（元信息 + entries，懒加载）
 │       └── read.json            ← AI 润色结果（按分P 增量）
 └── ...
 ```
 
-- **raw.json**：视频完整数据（meta 索引信息 + data 全部字幕），拉取完成时写入
+- **index.json**：视频元信息 + 分P 索引（meta + 分P 元信息列表，不含字幕内容），拉取完成时写入
+- **parts/NNN.json**：单个分P 的字幕（元信息 + entries），每个分P 一个文件；切换分P 时按需懒加载
 - **read.json**：AI 润色结果，`parts[]` 数组，只包含整理过的分P；整理哪个分P 就增量写入哪条，支持并发写（有锁保护）
 - 文件夹即索引，无数据库、无额外索引文件
+- 历史抽屉：单击条目加载，条目右上角 ✕ 删除（确认后递归删除本地目录）；重复拉取同一 BV 会自动清理旧日期目录（历史列表不出现重复条目）
+- 字幕搜索：200ms 防抖 + 后台线程过滤，数万条字幕的大分P 连续输入不卡 UI
 
 ---
 
@@ -180,7 +185,7 @@ BiliHelperWpf/history/
 ```
 %LocalAppData%\BiliHelper\
 ├── cookies.json    权威存储 {cookies, refresh_token, ...}（原子写入，绝不半截）
-├── cookies.txt     给 yt-dlp 用的 Netscape 格式（BiliService 读取，原子写入）
+├── cookies.txt     给 yt-dlp 用的 Netscape 格式（BiliService 读取，原子写入；yt-dlp 经临时副本读取，不回写正式文件）
 ├── fingerprint.json 设备指纹 buvid3/buvid4（跨进程复用，降低风控）
 ├── theme.txt       主题偏好
 └── ai_settings.json AI 大模型连接设置（API key / base_url / model）

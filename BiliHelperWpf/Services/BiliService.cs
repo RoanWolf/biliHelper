@@ -133,12 +133,21 @@ public class BiliService
         }
         catch (OperationCanceledException)
         {
-            App.Log("流式读取被取消");
+            App.Log("流式读取被取消，终止子进程树");
+            KillProcess(process);
             throw;
         }
 
         // ── 等待进程退出 ──
-        await process.WaitForExitAsync(ct).ConfigureAwait(false);
+        try
+        {
+            await process.WaitForExitAsync(ct).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            KillProcess(process);
+            throw;
+        }
 
         string stderr = errorBuilder.ToString().Trim();
 
@@ -246,20 +255,10 @@ public class BiliService
         }
         return baseDir;
     }
-}
-
-/// <summary>
-/// 流式调用异常。
-/// </summary>
-public class BiliServiceException : Exception
-{
-    public string StdErr { get; }
-    public int ExitCode { get; }
-
-    public BiliServiceException(string message, string stdErr, int exitCode)
-        : base($"{message}\n{stdErr}")
+    private static void KillProcess(Process process)
     {
-        StdErr = stdErr;
-        ExitCode = exitCode;
+        if (process.HasExited) return;
+        try { process.Kill(entireProcessTree: true); }
+        catch { /* 进程可能已退出 */ }
     }
 }

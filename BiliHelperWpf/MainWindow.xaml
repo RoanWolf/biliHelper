@@ -1,4 +1,4 @@
-﻿<ui:FluentWindow x:Class="BiliHelperWpf.MainWindow"
+<ui:FluentWindow x:Class="BiliHelperWpf.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -696,12 +696,23 @@
                                                                        FontSize="13" FontWeight="SemiBold"
                                                                        TextTrimming="CharacterEllipsis" />
 
-                                                            <TextBlock Grid.Row="0" Grid.Column="1"
-                                                                       Text="{Binding TimeStr}"
-                                                                       FontSize="11"
-                                                                       Foreground="{DynamicResource TextFillColorTertiaryBrush}"
-                                                                       VerticalAlignment="Center"
-                                                                       Margin="10,0,0,0" />
+                                                            <StackPanel Grid.Row="0" Grid.Column="1"
+                                                                        Orientation="Horizontal"
+                                                                        VerticalAlignment="Center">
+                                                                <TextBlock Text="{Binding TimeStr}"
+                                                                           FontSize="11"
+                                                                           Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                                                                           VerticalAlignment="Center" />
+                                                                <ui:Button Content="✕"
+                                                                           ToolTip="删除该历史记录"
+                                                                           Width="26" Height="26"
+                                                                           Padding="0" Margin="10,0,0,0"
+                                                                           FontSize="11"
+                                                                           Appearance="Transparent"
+                                                                           Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                                                                           Command="{Binding DataContext.DeleteHistoryCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                           CommandParameter="{Binding}" />
+                                                            </StackPanel>
 
                                                             <TextBlock Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
                                                                        Text="{Binding Summary}"

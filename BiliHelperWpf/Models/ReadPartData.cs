@@ -21,14 +21,4 @@ public class ReadPartData
     /// </summary>
     [JsonPropertyName("paragraphs")]
     public List<Paragraph> Paragraphs { get; set; } = [];
-
-    /// <summary>
-    /// 是否有段落数据。
-    /// </summary>
-    public bool HasParagraphs => Paragraphs.Count > 0;
-
-    /// <summary>
-    /// 段落总文本（拼接后用于展示的连续阅读文本）。
-    /// </summary>
-    public string FullText => string.Join(Environment.NewLine, Paragraphs.Select(p => p.Text));
 }
