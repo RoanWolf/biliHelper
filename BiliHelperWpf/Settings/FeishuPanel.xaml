@@ -62,13 +62,10 @@
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <StackPanel>
-                            <TextBlock Text="启用飞书同步"
-                                       FontSize="13" FontWeight="Medium"
-                                       Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
                             <TextBlock Text="AI 整理成功后自动同步该分P 到飞书云文档并通知群"
                                        FontSize="12"
                                        Foreground="{DynamicResource TextFillColorTertiaryBrush}"
-                                       Margin="0,2,0,0" />
+                                       VerticalAlignment="Center" />
                         </StackPanel>
                         <ui:ToggleSwitch Grid.Column="1"
                                          x:Name="EnableSwitch"
