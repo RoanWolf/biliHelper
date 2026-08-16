@@ -600,6 +600,17 @@ public class MainViewModel : ViewModelBase
                         if (SelectedPart == null)
                             SelectPart(part);
                         LoadProgress = $"已加载 {info.Parts.Count}/{info.TotalParts} 分P";
+
+                        // 边拉边落盘：该分P 立即写入磁盘（parts/NNN.json + index.json），
+                        // 使已拉好的分P 可马上 AI 整理（整理读磁盘历史文件）。
+                        // 后台线程写 + _indexFileLock 串行，不阻塞 UI 与后续分P 流。
+                        var bvId = info.BvId;
+                        var title = info.Title;
+                        var totalParts = info.TotalParts;
+                        var coverUrl = info.CoverUrl;
+                        var uploader = info.Uploader;
+                        Task.Run(() => HistoryService.SavePartIncremental(
+                            bvId, title, totalParts, coverUrl, uploader, part));
                     });
 
                     App.Log($"收到 P{ev.PartNumber}: {ev.SubtitleCount} 条字幕");

@@ -37,6 +37,12 @@ public static class HistoryService
     private static readonly object _readFileLock = new();
 
     /// <summary>
+    /// 保护 index.json / parts 的写互斥：流式拉取的增量落盘（每分P 一次，
+    /// 后台 Task.Run 并发）与 onComplete 的全量收尾可能同时写，串行化防竞态。
+    /// </summary>
+    private static readonly object _indexFileLock = new();
+
+    /// <summary>
     /// 无 BOM 的 UTF-8 编码。.NET 的 Encoding.UTF8 静态属性默认带 BOM（EF BB BF），
     /// Python 侧按 utf-8 读取会报错或产生首条数据脏字符，统一用无 BOM 编码写入。
     /// </summary>
@@ -123,6 +129,16 @@ public static class HistoryService
         Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
     };
 
+    /// <summary>
+    /// 原子写文本（临时文件 + File.Move 覆盖）：读端不会读到半截 JSON。
+    /// </summary>
+    private static void AtomicWriteText(string path, string content)
+    {
+        var tmp = path + ".tmp";
+        File.WriteAllText(tmp, content, Utf8NoBom);
+        File.Move(tmp, path, overwrite: true);
+    }
+
     // ─────────────────────────────────────────────────────────────
     // 路径定位
     // ─────────────────────────────────────────────────────────────
@@ -192,6 +208,88 @@ public static class HistoryService
     // ─────────────────────────────────────────────────────────────
 
     /// <summary>
+    /// 流式拉取中增量落盘：把刚到达的分P 写入 parts/NNN.json 并更新 index.json
+    /// （status=partial），使已拉好的分P 立即可被 AI 整理（整理读磁盘历史文件）。
+    /// 由 MainViewModel.onPart 后台调用（_indexFileLock 串行化并发写）。
+    /// </summary>
+    public static void SavePartIncremental(
+        string bvId, string title, int totalParts,
+        string? coverUrl, string? uploader, PartInfo part)
+    {
+        if (string.IsNullOrEmpty(bvId) || part == null)
+            return;
+
+        lock (_indexFileLock)
+        {
+            var saveDir = Path.Combine(GetDateDirPath(DateTime.Now.ToString("yyyyMMdd")), bvId);
+            try { Directory.CreateDirectory(saveDir); } catch { return; }
+            var partsDir = Path.Combine(saveDir, "parts");
+            try { Directory.CreateDirectory(partsDir); } catch { return; }
+
+            var indexPath = Path.Combine(saveDir, "index.json");
+            IndexFile? old = null;
+            if (File.Exists(indexPath))
+            {
+                try
+                {
+                    old = JsonSerializer.Deserialize<IndexFile>(File.ReadAllText(indexPath, Utf8NoBom));
+                }
+                catch
+                {
+                    old = null; // 损坏/半截则重建
+                }
+            }
+
+            // 合并分P 索引（同号替换，保持升序）
+            var partMetas = new List<PartMeta>();
+            if (old != null)
+                partMetas.AddRange(old.Parts);
+            partMetas.RemoveAll(pm => pm.PartNumber == part.PartNumber);
+            partMetas.Add(new PartMeta
+            {
+                PartNumber = part.PartNumber,
+                PartTitle = part.PartTitle,
+                Duration = part.Duration,
+                SubtitleCount = part.SubtitleCount,
+                SubtitleSource = part.SubtitleSource,
+                SubtitleLang = part.SubtitleLang,
+            });
+            partMetas.Sort((a, b) => a.PartNumber.CompareTo(b.PartNumber));
+
+            var meta = new HistoryItem
+            {
+                BvId = bvId,
+                Title = title,
+                TotalParts = totalParts,
+                TotalSubtitles = partMetas.Sum(p => p.SubtitleCount),
+                Status = "partial", // 拉取进行中
+                FetchTimeIso = old?.Meta.FetchTimeIso
+                    ?? DateTime.Now.ToString("yyyy-MM-ddTHH:mm:ss"),
+            };
+            var idx = new IndexFile
+            {
+                Meta = meta,
+                Parts = partMetas,
+                CoverUrl = coverUrl ?? old?.CoverUrl,
+                Uploader = uploader ?? old?.Uploader,
+            };
+
+            try
+            {
+                AtomicWriteText(indexPath, JsonSerializer.Serialize(idx, SerializerOptions()));
+                AtomicWriteText(
+                    Path.Combine(partsDir, $"{part.PartNumber:D3}.json"),
+                    JsonSerializer.Serialize(part, SerializerOptions()));
+                App.Log($"增量落盘: bvId={bvId}, P{part.PartNumber} ({part.SubtitleCount} 条)");
+            }
+            catch (Exception ex)
+            {
+                App.Log($"增量落盘失败 bvId={bvId} P{part.PartNumber}: {ex.Message}");
+            }
+        }
+    }
+
+    /// <summary>
     /// 从流式加载完成的数据创建历史记录：写 index.json（元信息 + 分P 索引）
     /// + parts/NNN.json（每分P 字幕），并删除旧的单文件 raw.json（升级）。
     /// </summary>
@@ -199,6 +297,9 @@ public static class HistoryService
     {
         if (string.IsNullOrEmpty(info.BvId))
             return;
+
+        lock (_indexFileLock)
+        {
 
         var now = DateTime.Now;
         var saveDir = Path.Combine(GetDateDirPath(now.ToString("yyyyMMdd")), info.BvId);
@@ -234,10 +335,9 @@ public static class HistoryService
         var index = new IndexFile { Meta = item, Parts = partMetas, CoverUrl = info.CoverUrl, Uploader = info.Uploader };
         try
         {
-            File.WriteAllText(
+            AtomicWriteText(
                 Path.Combine(saveDir, "index.json"),
-                JsonSerializer.Serialize(index, opt),
-                Utf8NoBom);
+                JsonSerializer.Serialize(index, opt));
         }
         catch (Exception ex)
         {
@@ -259,10 +359,9 @@ public static class HistoryService
         {
             try
             {
-                File.WriteAllText(
+                AtomicWriteText(
                     Path.Combine(partsDir, $"{p.PartNumber:D3}.json"),
-                    JsonSerializer.Serialize(p, opt),
-                    Utf8NoBom);
+                    JsonSerializer.Serialize(p, opt));
                 savedParts++;
             }
             catch (Exception ex)
@@ -280,6 +379,7 @@ public static class HistoryService
         }
 
         App.Log($"历史记录已保存: {saveDir} (index.json + parts/{savedParts})");
+        }
     }
 
     // ─────────────────────────────────────────────────────────────
