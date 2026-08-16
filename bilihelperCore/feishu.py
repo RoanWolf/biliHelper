@@ -139,45 +139,6 @@ def send_message(token: str, chat_id: str, text: str) -> None:
         "发送群消息")
 
 
-def send_document_card(token: str, chat_id: str, title: str, part_line: str,
-                       meta: str, doc_url: str) -> None:
-    """发 interactive 卡片消息：标题 + 分P 名 + 作者/元信息 + 「打开文档」链接按钮。"""
-    content = {
-        "config": {"wide_screen_mode": True},
-        "header": {
-            "template": "blue",
-            "title": {"tag": "plain_text", "content": title},
-        },
-        "elements": [
-            {
-                "tag": "div",
-                "text": {"tag": "lark_md", "content": part_line},
-            },
-            {
-                "tag": "div",
-                "text": {"tag": "lark_md", "content": meta},
-            },
-            {
-                "tag": "action",
-                "actions": [
-                    {
-                        "tag": "button",
-                        "text": {"tag": "plain_text", "content": "打开文档"},
-                        "type": "primary",
-                        "url": doc_url,
-                    },
-                ],
-            },
-        ],
-    }
-    check_ok(
-        api_post(token, "/im/v1/messages",
-                 params={"receive_id_type": "chat_id"},
-                 body={"receive_id": chat_id, "msg_type": "interactive",
-                       "content": json.dumps(content, ensure_ascii=False)}),
-        "发送卡片消息")
-
-
 # ─────────────────────────────────────────────────────────────
 # 云盘文件夹
 # ─────────────────────────────────────────────────────────────
@@ -457,15 +418,11 @@ def cmd_sync(args) -> int:
             "synced_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
         })
 
-        # ── 发群卡片消息（标题 + 分P 名 + 作者 + 打开文档按钮）──
+        # ── 发群消息（纯文本：链接 by 作者）──
         emit({"type": "status", "step": "发送群消息"})
         doc_url = DOC_URL_TMPL.format(id=doc_id)
-        card_title = clean_name(f"《{video_title}》 P{part_no}", 80)
-        card_part = f"**P{part_no} · {part_title}**"
-        author_part = f"UP主：**{uploader}** · " if uploader else ""
-        card_meta = (f"{author_part}{len(paragraphs)} 段 · "
-                     f"整理于 {time.strftime('%m-%d %H:%M')}")
-        send_document_card(token, chat_id, card_title, card_part, card_meta, doc_url)
+        msg = f"{doc_url} by {uploader}" if uploader else doc_url
+        send_message(token, chat_id, msg)
 
         save_sync_map(sync_file, sync_map)
         emit({"type": "complete", "document_id": doc_id, "document_url": doc_url})
