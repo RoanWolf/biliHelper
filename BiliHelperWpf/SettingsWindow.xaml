@@ -85,6 +85,14 @@
                             <TextBlock Text="AI模型" Style="{StaticResource FluentNavLabelStyle}" />
                         </RadioButton>
 
+                        <RadioButton x:Name="NavFeishu"
+                                     Tag="2"
+                                     GroupName="Nav"
+                                     Style="{StaticResource FluentNavItemStyle}"
+                                     Checked="Nav_Checked">
+                            <TextBlock Text="飞书" Style="{StaticResource FluentNavLabelStyle}" />
+                        </RadioButton>
+
                         <!-- 个性化 -->
                         <ContentControl Content="个性化"
                                         FontSize="12" FontWeight="SemiBold"
@@ -93,7 +101,7 @@
                                         Margin="0,18,0,0" />
 
                         <RadioButton x:Name="NavAppearance"
-                                     Tag="2"
+                                     Tag="3"
                                      GroupName="Nav"
                                      Style="{StaticResource FluentNavItemStyle}"
                                      Checked="Nav_Checked">

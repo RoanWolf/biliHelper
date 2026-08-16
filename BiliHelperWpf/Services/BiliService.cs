@@ -206,6 +206,7 @@ public class BiliService
             SubtitleCount = root.TryGetProperty("subtitle_count", out var sc) ? sc.GetInt32() : 0,
             SubtitleSource = root.TryGetProperty("subtitle_source", out var ss) ? ss.GetString() : null,
             SubtitleLang = root.TryGetProperty("subtitle_lang", out var sl) ? sl.GetString() : null,
+            CoverUrl = root.TryGetProperty("cover_url", out var cu) ? cu.GetString() : null,
         };
 
         if (root.TryGetProperty("entries", out var entriesElem) && entriesElem.ValueKind == JsonValueKind.Array)

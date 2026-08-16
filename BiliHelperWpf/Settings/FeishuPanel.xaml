@@ -1,0 +1,129 @@
+<UserControl x:Class="BiliHelperWpf.Settings.FeishuPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             Background="Transparent">
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="SettingsStyles.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </UserControl.Resources>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto"
+                  HorizontalScrollBarVisibility="Disabled"
+                  Padding="0">
+        <StackPanel>
+            <!-- ═══ 标题行：左标题 + 右上角操作按钮（宽度与卡片对齐） ═══ -->
+            <Grid Width="540" HorizontalAlignment="Left">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Text="飞书同步"
+                           Style="{StaticResource FluentPageTitleStyle}"
+                           VerticalAlignment="Center" />
+
+                <StackPanel Grid.Column="1"
+                            Orientation="Horizontal"
+                            VerticalAlignment="Center">
+                    <ui:Button x:Name="TestButton"
+                               Content="测试"
+                               Appearance="Secondary"
+                               FontSize="13"
+                               Click="TestButton_Click" />
+                    <ui:Button x:Name="SaveButton"
+                               Content="保存"
+                               Appearance="Primary"
+                               FontSize="13"
+                               Margin="12,0,0,0"
+                               Click="SaveButton_Click" />
+                </StackPanel>
+            </Grid>
+
+            <Border Style="{StaticResource FluentSectionDividerStyle}" />
+
+            <!-- ═══ 同步设置 ═══ -->
+            <Border Style="{StaticResource FluentCardStyle}"
+                    Width="540"
+                    HorizontalAlignment="Left"
+                    Padding="28,24">
+                <StackPanel>
+                    <ContentControl Content="同步设置"
+                                    FontSize="13" FontWeight="SemiBold"
+                                    Style="{StaticResource FluentGroupTitleStyle}" />
+
+                    <!-- 启用开关 -->
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel>
+                            <TextBlock Text="启用飞书同步"
+                                       FontSize="13" FontWeight="Medium"
+                                       Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                            <TextBlock Text="AI 整理成功后自动同步该分P 到飞书云文档并通知群"
+                                       FontSize="12"
+                                       Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                                       Margin="0,2,0,0" />
+                        </StackPanel>
+                        <ui:ToggleSwitch Grid.Column="1"
+                                         x:Name="EnableSwitch"
+                                         Click="EnableSwitch_IsCheckedChanged" />
+                    </Grid>
+
+                    <!-- App ID -->
+                    <TextBlock Text="App ID" Style="{StaticResource FluentFieldLabelStyle}" Margin="0,18,0,8" />
+                    <ui:TextBox x:Name="AppIdBox" />
+
+                    <!-- App Secret -->
+                    <TextBlock Text="App Secret"
+                               Style="{StaticResource FluentFieldLabelStyle}"
+                               Margin="0,18,0,8" />
+                    <ui:PasswordBox x:Name="AppSecretBox" />
+
+                    <!-- 群号 -->
+                    <TextBlock Text="群号（chat_id，oc_ 开头）"
+                               Style="{StaticResource FluentFieldLabelStyle}"
+                               Margin="0,18,0,8" />
+                    <ui:TextBox x:Name="ChatIdBox" />
+
+                    <!-- 根文件夹 -->
+                    <TextBlock Text="云盘根文件夹名"
+                               Style="{StaticResource FluentFieldLabelStyle}"
+                               Margin="0,18,0,8" />
+                    <ui:TextBox x:Name="RootFolderBox" />
+                </StackPanel>
+            </Border>
+
+            <!-- ═══ 测试结果（并入配置卡片下方） ═══ -->
+            <Border x:Name="TestResultBox"
+                    Visibility="Collapsed"
+                    Width="540"
+                    HorizontalAlignment="Left"
+                    BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Margin="0,16,0,0">
+                <Grid>
+                    <Border Background="{Binding Foreground, ElementName=TestResultText}"
+                            Opacity="0.08"
+                            CornerRadius="8" />
+                    <Border HorizontalAlignment="Left"
+                            Width="4"
+                            CornerRadius="2,0,0,2"
+                            Background="{Binding Foreground, ElementName=TestResultText}" />
+                    <TextBlock x:Name="TestResultText"
+                               FontSize="13"
+                               FontWeight="Medium"
+                               Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                               TextWrapping="Wrap"
+                               Margin="16,12" />
+                </Grid>
+            </Border>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

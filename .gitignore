@@ -39,3 +39,6 @@ _log/
 
 # AiHelper test outputs
 BiliHelperCore/AiHelper/test_data/
+
+# Feishu integration tests & credentials (never commit)
+feishu/

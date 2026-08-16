@@ -47,6 +47,7 @@ public partial class SettingsWindow : Wpf.Ui.Controls.FluentWindow
         [
             new AccountPanel(vm),
             new AiModelPanel(),
+            new FeishuPanel(),
             new AppearancePanel(),
         ];
 
@@ -118,7 +119,8 @@ public partial class SettingsWindow : Wpf.Ui.Controls.FluentWindow
         {
             case 0 when NavAccount.IsChecked != true: NavAccount.IsChecked = true; break;
             case 1 when NavAi.IsChecked != true: NavAi.IsChecked = true; break;
-            case 2 when NavAppearance.IsChecked != true: NavAppearance.IsChecked = true; break;
+            case 2 when NavFeishu.IsChecked != true: NavFeishu.IsChecked = true; break;
+            case 3 when NavAppearance.IsChecked != true: NavAppearance.IsChecked = true; break;
         }
     }
 

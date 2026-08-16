@@ -16,6 +16,7 @@ biliHelper/
 │   ├── AiHelper/                   AI 模块（DeepSeek）
 │   │   ├── reading.py             AIClient 封装 + .env 加载
 │   │   └── ai_read.py             单分P AI 润色脚本（供 WPF 子进程调用）
+│   ├── feishu.py                   飞书云文档同步（test 连通测试 / sync 分P 同步，供 WPF 子进程调用）
 │   ├── pyproject.toml             uv 项目配置（依赖 openai + yt-dlp + requests + qrcode）
 │   ├── uv.lock                    依赖锁
 │   └── .venv/                     虚拟环境
@@ -31,13 +32,16 @@ biliHelper/
 │   │   ├── ReadPartData.cs        单分P 润色数据
 │   │   ├── HistoryItem.cs         历史记录条目
 │   │   ├── HistoryGroup.cs        历史记录日期分组
+│   │   ├── FeishuSettings.cs      飞书同步设置（开关/AppID/Secret/群号/根文件夹）
 │   │   └── StreamEvent.cs         流式事件模型
 │   ├── Services/
 │   │   ├── BiliService.cs         字幕抓取子进程管理 + 管道读取
 │   │   ├── AiReadService.cs       AI 润色子进程管理 + 管道读取
 │   │   ├── AiSettingsStore.cs     AI 设置持久化（%LocalAppData%\BiliHelper\ai_settings.json）
 │   │   ├── AuthService.cs         B 站登录子进程管理（auth.py）+ 管道读取
-│   │   └── HistoryService.cs      本地 JSON 文件存储（raw/read）
+│   │   ├── FeishuService.cs       飞书同步子进程管理（feishu.py）+ 管道读取
+│   │   ├── FeishuSettingsStore.cs 飞书设置持久化（%LocalAppData%\BiliHelper\feishu_settings.json）
+│   │   └── HistoryService.cs      本地 JSON 文件存储（index+parts/read）
 │   ├── ViewModels/
 │   │   ├── MainViewModel.cs       主视图模型（状态管理、并发控制、cookie 状态）
 │   │   ├── RelayCommand.cs        ICommand 实现
@@ -52,6 +56,7 @@ biliHelper/
 │   │   ├── SettingsStyles.xaml     共享样式（10 个：页面标题/分组标题/卡片/导航药丸/主题选择卡，FontSize 由顶部统一控制）
 │   │   ├── AccountPanel.xaml(.cs)  账号面板：内嵌扫码登录（互斥串行防并发写）+ 欢迎卡片（头像/昵称/UID）+ 退出
 │   │   ├── AiModelPanel.xaml(.cs)  AI 大模型连接面板（API Key / Base URL / 模型，测试/保存按钮在标题行右上角，测试结果内联卡片）
+│   │   ├── FeishuPanel.xaml(.cs)  飞书同步面板（启用开关 + AppID/Secret/群号/根文件夹 + 测试）
 │   │   └── AppearancePanel.xaml(.cs) 主题选择面板（左右并排 + 迷你预览 + 右上角单选圈）
 │   ├── MainWindow.xaml             主界面（FluentWindow + WPF-UI；标题栏无 cookie/设置按钮；URL 工具行含「⚙️ 配置」入口，颜色走 DynamicResource）
 │   ├── MainWindow.xaml.cs          窗口隐藏、设置中心开关（DWM 圆角由 FluentWindow 接管）
@@ -271,6 +276,28 @@ AccountPanel.LoadUserInfoAsync()   （已登录时展示欢迎卡片）
 
 ---
 
+## 飞书同步（云文档）
+
+AI 整理成功后，可自动把该分P 同步为飞书云文档（**1 分P = 1 篇文档**），机器人往群发文档链接。唯一入口是设置中心「飞书」面板：启用开关 + App ID / App Secret / 群号（chat_id，`oc_` 开头）/ 根文件夹名，点「测试」（往群发一条测试消息）验证后保存。
+
+### 行为
+
+- **触发**：AI 整理成功后自动同步（串行队列，同一时刻只跑一个同步子进程）；配置未启用/不完整时静默跳过，不影响整理
+- **目录**：`{根文件夹}/{视频标题}/P{分P号} {分P标题}.docx` —— 文件夹 find-or-create，新建时把群加为协作者（full_access）
+- **封面**：新建文档时用 B 站视频封面（拉字幕时把封面 URL 记入 index.json 的 `CoverUrl`，同步时现下载→上传→设置；旧数据无封面则默认封面）
+- **重复同步**：覆盖更新正文（清空旧块重写），`document_id` 不变 → 群里的旧链接永远有效
+- **失败处理**：AI 润色 tab 顶部显示同步状态（🔄同步中 / ✓已同步 / ⚠失败+重试），失败不影响整理结果
+- 防重复创建：`%LocalAppData%\BiliHelper\feishu_sync.json` 记录 顶层/视频文件夹 token 与 分P→document_id 映射（原子写，根文件夹名改变时自动重置）
+
+### 实现
+
+- 子进程：`BiliHelperCore/feishu.py`（`test` / `sync --bv-dir <视频目录> --part <N>`，stdout JSONL），凭证经环境变量 `FEISHU_APP_ID/SECRET/CHAT_ID/ROOT_FOLDER` 注入（与 `DEEPSEEK_*` 同模式）
+- WPF：`FeishuService` spawn + 管道读取；`MainViewModel` 串行闸门 + 按分P 状态 + 失败重试
+- 依赖：requests（已有）；需在飞书开放平台开通 `drive:drive` 等权限并**发布版本**后生效
+- 测试/调试脚本与凭证在 `feishu/` 目录（**gitignored，绝不提交**）
+
+---
+
 ## 多主题（浅 / 深色）
 
 WPF 端支持浅色 / 深色两种主题，运行时可在设置中心「外观」面板切换（标题栏 ☀️/🌙 按钮已随扫码登录合并移除），选择持久化到 `%LocalAppData%\BiliHelper\theme.txt`，下次启动自动恢复。
@@ -312,6 +339,7 @@ WPF 设置中心（⚙️ `SettingsWindow`）是唯一的配置入口：账号�
 |------|------|------|
 | 账号 | `Settings/AccountPanel.xaml(.cs)` | 内嵌扫码登录（二维码/状态/重新生成/退出），轮询挂 Loaded/Unloaded；复用 `MainViewModel.LoginAsync/DeleteCookiesAsync` |
 | AI 模型 | `Settings/AiModelPanel.xaml(.cs)` | API Key / Base URL / 模型；「测试连通性」「保存」在标题行右上角，测试结果内联卡片显示在连接配置卡下方 |
+| 飞书 | `Settings/FeishuPanel.xaml(.cs)` | 启用开关 + App ID / App Secret / 群号 / 根文件夹；「测试」「保存」在标题行右上角，测试结果内联卡片 |
 | 外观 | `Settings/AppearancePanel.xaml(.cs)` | 浅色/深色**左右并排**主题卡，各带 72px 迷你预览，单选圈悬浮右上角 |
 
 ### 交互细节

@@ -15,6 +15,12 @@ public class BiliVideoInfo
     public ObservableCollection<PartInfo> Parts { get; init; } = [];
 
     /// <summary>
+    /// B站视频封面 URL（视频级，所有分P 相同；供飞书文档封面）。
+    /// 拉取时从 part 事件的 cover_url 取第一个非空值；随 index.json 的 CoverUrl 持久化。
+    /// </summary>
+    public string? CoverUrl { get; set; }
+
+    /// <summary>
     /// 状态的中文描述。
     /// </summary>
     [JsonIgnore]

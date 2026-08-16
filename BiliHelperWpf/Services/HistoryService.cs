@@ -49,6 +49,9 @@ public static class HistoryService
     {
         public HistoryItem Meta { get; init; } = new();
         public List<PartMeta> Parts { get; init; } = [];
+
+        /// <summary>B站视频封面 URL（视频级，供飞书文档封面；旧数据无此字段）。</summary>
+        public string? CoverUrl { get; init; }
     }
 
     static HistoryService()
@@ -127,6 +130,11 @@ public static class HistoryService
     /// 同一 BV 可能因重复拉取存在于多个日期目录 —— 固定取最新日期目录
     /// （YYYYMMDD 字符串序即时间序），保证 read.json / parts 定位不分裂。
     /// </summary>
+    /// <summary>
+    /// 公开入口：定位某 BV 的视频目录（供 FeishuService/MainViewModel 同步用）。
+    /// </summary>
+    public static string? FindVideoDirectory(string bvId) => FindVideoDir(bvId);
+
     private static string? FindVideoDir(string bvId)
     {
         if (!Directory.Exists(HistoryDir))
@@ -220,7 +228,7 @@ public static class HistoryService
         }).ToList();
 
         // ── index.json ───────────────────────────────────────
-        var index = new IndexFile { Meta = item, Parts = partMetas };
+        var index = new IndexFile { Meta = item, Parts = partMetas, CoverUrl = info.CoverUrl };
         try
         {
             File.WriteAllText(
@@ -301,6 +309,7 @@ public static class HistoryService
                     BvId = idx.Meta.BvId,
                     Title = idx.Meta.Title,
                     TotalParts = idx.Meta.TotalParts,
+                    CoverUrl = idx.CoverUrl,
                 };
 
                 foreach (var pm in idx.Parts)

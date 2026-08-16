@@ -464,6 +464,7 @@ def get_subtitles_stream(
             # ----- 先用 --dump-json 获取真实分P标题和时长 -----
             real_title = pi.get("part_title", "")
             real_duration = pi.get("duration")
+            cover_url = ""  # B站视频封面（视频级，各分P 相同；供飞书文档封面用）
             try:
                 dump_args = (
                     ["--dump-json", "--skip-download"]
@@ -479,6 +480,7 @@ def get_subtitles_stream(
                         m = re.search(r"\bp\d+\s+(.*)", full_title)
                         real_title = m.group(1) if m else full_title
                     real_duration = info.get("duration") or real_duration
+                    cover_url = info.get("thumbnail") or cover_url
             except (NetworkError, BiliHelperError, json.JSONDecodeError):
                 logging.getLogger(__name__).warning(
                     "获取分P详情失败，使用默认标题/时长"
@@ -514,6 +516,7 @@ def get_subtitles_stream(
                     "part_title": real_title,
                     "duration": real_duration,
                     "subtitle_count": 0,
+                    "cover_url": cover_url,
                 }
                 continue
 
@@ -523,6 +526,7 @@ def get_subtitles_stream(
                 "part_title": real_title,
                 "duration": real_duration,
                 "subtitle_count": 0,
+                "cover_url": cover_url,
             }
 
             candidates = []

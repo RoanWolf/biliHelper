@@ -437,6 +437,7 @@
                                 <Grid Visibility="{Binding IsFullTextVisible, Converter={StaticResource BoolToVis}}">
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="Auto" />  <!-- 错误 -->
+                                        <RowDefinition Height="Auto" />  <!-- 飞书同步状态 -->
                                         <RowDefinition Height="Auto" />  <!-- 无选中分P占位 -->
                                         <RowDefinition Height="*" />     <!-- 内容区：未整理卡片 / 段落列表 -->
                                     </Grid.RowDefinitions>
@@ -450,15 +451,31 @@
                                         Margin="12,8"
                                         IsOpen="{Binding AiReadError, Mode=OneWay}" />
 
+                            <!-- 飞书同步状态行（🔄同步中 / ✓已同步 / ⚠失败+重试） -->
+                            <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="12,4">
+                                <TextBlock Text="{Binding FeishuSyncStatus}"
+                                           FontSize="12"
+                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                           VerticalAlignment="Center"
+                                           TextWrapping="Wrap" />
+                                <ui:Button Content="重试"
+                                           Command="{Binding FeishuRetryCommand}"
+                                           Visibility="{Binding FeishuSyncFailed, Converter={StaticResource BoolToVis}}"
+                                           FontSize="12"
+                                           Padding="10,2"
+                                           Margin="10,0,0,0"
+                                           Appearance="Secondary" />
+                            </StackPanel>
+
                             <!-- 无选中分P时的占位 -->
-                            <TextBlock Grid.Row="1"
+                            <TextBlock Grid.Row="2"
                                        Text="← 从左侧选择一个分P"
                                        FontSize="14" Foreground="{DynamicResource TextFillColorTertiaryBrush}"
                                        HorizontalAlignment="Center" VerticalAlignment="Center"
                                        Visibility="{Binding SelectedPart, Converter={StaticResource NullToVis}, ConverterParameter=Invert}" />
 
                             <!-- 未整理时的占位（有选中分P，但还没有 AI 段落） -->
-                            <Border Grid.Row="2"
+                            <Border Grid.Row="3"
                                     Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
                                     BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
                                     BorderThickness="1"
@@ -505,7 +522,7 @@
                             </Border>
 
                             <!-- 段落列表（已整理的阅读版） -->
-                            <ScrollViewer Grid.Row="2"
+                            <ScrollViewer Grid.Row="3"
                                           VerticalScrollBarVisibility="Auto"
                                           HorizontalScrollBarVisibility="Disabled"
                                           Padding="24,16"
