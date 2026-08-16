@@ -187,6 +187,10 @@ public static class ThemeManager
             // Primary 按钮前景（ui:Button Appearance="Primary"）源自 TextOnAccent，深色下改白
             resources["AccentButtonForeground"] = Solid(0xFF, 0xFF, 0xFF);
             resources["AccentButtonForegroundPointerOver"] = Solid(0xFF, 0xFF, 0xFF);
+
+            // Tab 选中背景：下方已有蓝色指示条表达选中，深色下 TabItem 模板默认的
+            // 深灰选中底（TabViewItemHeaderBackgroundSelected）会"加黑"标签，改为透明。
+            resources["TabViewItemHeaderBackgroundSelected"] = System.Windows.Media.Brushes.Transparent;
         }
         else
         {
@@ -223,6 +227,7 @@ public static class ThemeManager
             resources.Remove("TextOnAccentFillColorPrimaryBrush");
             resources.Remove("AccentButtonForeground");
             resources.Remove("AccentButtonForegroundPointerOver");
+            resources.Remove("TabViewItemHeaderBackgroundSelected");
         }
     }
 
