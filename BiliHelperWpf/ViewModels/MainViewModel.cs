@@ -588,6 +588,10 @@ public class MainViewModel : ViewModelBase
                     if (string.IsNullOrEmpty(info.CoverUrl) && !string.IsNullOrEmpty(ev.CoverUrl))
                         info.CoverUrl = ev.CoverUrl;
 
+                    // 记录 UP 主名（视频级，取第一个非空；供飞书卡片消息作者）
+                    if (string.IsNullOrEmpty(info.Uploader) && !string.IsNullOrEmpty(ev.Uploader))
+                        info.Uploader = ev.Uploader;
+
                     // 切回 UI 线程再操作 ObservableCollection 和 UI 属性
                     ui.Invoke(() =>
                     {

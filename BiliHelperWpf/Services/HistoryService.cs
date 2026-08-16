@@ -52,6 +52,9 @@ public static class HistoryService
 
         /// <summary>B站视频封面 URL（视频级，供飞书文档封面；旧数据无此字段）。</summary>
         public string? CoverUrl { get; init; }
+
+        /// <summary>B站 UP 主名（视频级，供飞书卡片消息作者展示；旧数据无此字段）。</summary>
+        public string? Uploader { get; init; }
     }
 
     static HistoryService()
@@ -228,7 +231,7 @@ public static class HistoryService
         }).ToList();
 
         // ── index.json ───────────────────────────────────────
-        var index = new IndexFile { Meta = item, Parts = partMetas, CoverUrl = info.CoverUrl };
+        var index = new IndexFile { Meta = item, Parts = partMetas, CoverUrl = info.CoverUrl, Uploader = info.Uploader };
         try
         {
             File.WriteAllText(
@@ -310,6 +313,7 @@ public static class HistoryService
                     Title = idx.Meta.Title,
                     TotalParts = idx.Meta.TotalParts,
                     CoverUrl = idx.CoverUrl,
+                    Uploader = idx.Uploader,
                 };
 
                 foreach (var pm in idx.Parts)

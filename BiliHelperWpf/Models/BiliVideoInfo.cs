@@ -21,6 +21,12 @@ public class BiliVideoInfo
     public string? CoverUrl { get; set; }
 
     /// <summary>
+    /// B站 UP 主名（视频级；供飞书卡片消息作者展示）。
+    /// 拉取时从 part 事件的 uploader 取第一个非空值；随 index.json 的 Uploader 持久化。
+    /// </summary>
+    public string? Uploader { get; set; }
+
+    /// <summary>
     /// 状态的中文描述。
     /// </summary>
     [JsonIgnore]

@@ -31,6 +31,7 @@ public class StreamEvent
     public string? SubtitleSource { get; init; }
     public string? SubtitleLang { get; init; }
     public string? CoverUrl { get; init; }
+    public string? Uploader { get; init; }
     public List<SubtitleEntry>? Entries { get; set; }
 
     // ── Complete 字段 ──
