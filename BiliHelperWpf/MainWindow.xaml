@@ -532,9 +532,17 @@
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
                                             <StackPanel Margin="0,0,0,18">
-                                                <TextBlock Text="{Binding Text}"
-                                                           FontSize="15" LineHeight="28" TextWrapping="Wrap"
-                                                           Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                                                <!-- 只读 TextBox 伪装成文本：支持鼠标划选复制（TextBlock 不支持选择） -->
+                                                <TextBox Text="{Binding Text}"
+                                                         IsReadOnly="True"
+                                                         IsTabStop="False"
+                                                         Padding="0"
+                                                         Background="Transparent"
+                                                         BorderThickness="0"
+                                                         FontSize="15" TextWrapping="Wrap"
+                                                         Foreground="{DynamicResource TextFillColorPrimaryBrush}"
+                                                         CaretBrush="Transparent"
+                                                         SelectionBrush="{DynamicResource AccentFillColorDefaultBrush}" />
                                                 <TextBlock Text="{Binding SourceStartIndex, StringFormat='↳ 字幕 #{0}'}"
                                                            FontSize="11" Foreground="{DynamicResource TextFillColorTertiaryBrush}"
                                                            Margin="0,4,0,0" />
