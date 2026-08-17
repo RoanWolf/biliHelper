@@ -148,7 +148,6 @@ public class MainViewModel : ViewModelBase
                 OnPropertyChanged(nameof(ShowAiReadEmptyCard));
                 OnPropertyChanged(nameof(IsCurrentPartAiReadBusy));
                 LoadAiReadForSelectedPart();
-                RefreshFeishuUi();
             }
         }
     }
@@ -288,32 +287,21 @@ public class MainViewModel : ViewModelBase
         set => SetProperty(ref _aiReadErrorMessage, value);
     }
 
-    // ── 飞书同步状态（按分P 维护；串行闸门保证同一时刻一个 feishu 子进程）──
+    // ── 飞书同步（通知式：状态写底栏 StatusMessage；串行闸门保证同一时刻一个子进程）──
     private readonly FeishuService _feishuService = new();
     private readonly SemaphoreSlim _feishuGate = new(1, 1);
-    private readonly Dictionary<int, string> _feishuStatus = new();
-    private readonly Dictionary<int, string> _feishuError = new();
     private readonly HashSet<int> _feishuSyncing = new();
 
-    /// <summary>当前选中分P 的飞书同步状态文本（🔄同步中 / ✓已同步 / ⚠失败）。</summary>
-    private string _feishuSyncStatus = string.Empty;
-    public string FeishuSyncStatus
+    /// <summary>是否有飞书同步失败待重试（底栏「重试」按钮可见性）。</summary>
+    private bool _feishuSyncFailed;
+    public bool FeishuSyncFailed
     {
-        get => _feishuSyncStatus;
-        private set => SetProperty(ref _feishuSyncStatus, value);
+        get => _feishuSyncFailed;
+        private set => SetProperty(ref _feishuSyncFailed, value);
     }
 
-    private string _feishuSyncError = string.Empty;
-    public string FeishuSyncError
-    {
-        get => _feishuSyncError;
-        private set => SetProperty(ref _feishuSyncError, value);
-    }
-
-    public bool FeishuSyncFailed => !string.IsNullOrEmpty(_feishuSyncError);
-
-    public bool IsCurrentPartFeishuSyncing =>
-        SelectedPart != null && _feishuSyncing.Contains(SelectedPart.PartNumber);
+    /// <summary>最近一次失败的分P 号（重试目标）。</summary>
+    private int _feishuFailedPart;
 
     // ── 历史记录 ────────────────────────────────────────────
     private bool _isHistoryOpen;
@@ -350,8 +338,8 @@ public class MainViewModel : ViewModelBase
         AiReadCommand = new RelayCommand(async _ => await GenerateReadAsync(), _ => CanAiRead);
         FeishuRetryCommand = new RelayCommand(_ =>
         {
-            if (SelectedPart != null && FeishuSyncFailed && !IsCurrentPartFeishuSyncing)
-                AutoSyncToFeishuAsync(SelectedPart.PartNumber);
+            if (FeishuSyncFailed && !_feishuSyncing.Contains(_feishuFailedPart))
+                AutoSyncToFeishuAsync(_feishuFailedPart);
         });
     }
 
@@ -754,7 +742,7 @@ public class MainViewModel : ViewModelBase
 
     /// <summary>
     /// 飞书自动同步：AI 整理成功后把该分P 同步为飞书云文档（串行闸门排队，同一时刻一个子进程）。
-    /// 配置未启用/不完整时静默跳过，不影响整理结果；失败可经 FeishuRetryCommand 重试。
+    /// 通知式：状态写底栏 StatusMessage；配置未启用/不完整时静默跳过；失败可经 FeishuRetryCommand 重试。
     /// </summary>
     private async void AutoSyncToFeishuAsync(int partNumber)
     {
@@ -772,13 +760,14 @@ public class MainViewModel : ViewModelBase
         if (bvDir == null)
         {
             App.Log($"飞书同步失败: 找不到历史目录 bvId={bvId}");
-            UpdateFeishuUi(partNumber, "⚠ 飞书同步失败", "找不到历史目录");
+            SetFeishuFailed(partNumber, "找不到历史目录");
             return;
         }
 
+        var partTitle = VideoInfo.Parts.FirstOrDefault(p => p.PartNumber == partNumber)?.PartTitle ?? "";
+
         _feishuSyncing.Add(partNumber);
-        UpdateFeishuUi(partNumber, "🔄 同步到飞书中...", "");
-        OnPropertyChanged(nameof(IsCurrentPartFeishuSyncing));
+        StatusMessage = "🔄 同步到飞书中...";
         var ui = App.Current.Dispatcher;
         try
         {
@@ -787,67 +776,48 @@ public class MainViewModel : ViewModelBase
             {
                 await _feishuService.SyncPartAsync(
                     bvDir, partNumber, settings,
-                    onStatus: step => ui.Invoke(() => UpdateFeishuUi(partNumber, $"🔄 {step}", "")),
+                    onStatus: _ => { /* 子步骤不刷底栏，避免刷屏 */ },
                     onComplete: url =>
                     {
                         App.Log($"飞书同步完成: bvId={bvId}, part={partNumber}, url={url}");
-                        ui.Invoke(() => UpdateFeishuUi(partNumber, "✓ 已同步到飞书", ""));
+                        ui.Invoke(() =>
+                        {
+                            FeishuSyncFailed = false;
+                            var shortTitle = partTitle.Length > 24
+                                ? partTitle[..24] + "..."
+                                : partTitle;
+                            StatusMessage = $"✓ 飞书同步成功 · P{partNumber} {shortTitle}";
+                        });
                     },
                     onError: msg =>
                     {
                         App.Log($"飞书同步失败: bvId={bvId}, part={partNumber}, {msg}");
-                        ui.Invoke(() => UpdateFeishuUi(partNumber, "⚠ 飞书同步失败", msg));
+                        ui.Invoke(() => SetFeishuFailed(partNumber, msg));
                     });
             });
         }
         catch (OperationCanceledException)
         {
-            UpdateFeishuUi(partNumber, "⚠ 飞书同步失败", "已取消");
+            SetFeishuFailed(partNumber, "已取消");
         }
         catch (Exception ex)
         {
             App.Log($"飞书同步异常: bvId={bvId}, part={partNumber}, {ex}");
-            UpdateFeishuUi(partNumber, "⚠ 飞书同步失败", ex.Message);
+            SetFeishuFailed(partNumber, ex.Message);
         }
         finally
         {
             _feishuGate.Release();
             _feishuSyncing.Remove(partNumber);
-            OnPropertyChanged(nameof(IsCurrentPartFeishuSyncing));
         }
     }
 
-    /// <summary>更新某分P 的飞书同步状态；若为当前选中分P 则同步刷新 UI 属性。</summary>
-    private void UpdateFeishuUi(int partNumber, string status, string error)
+    /// <summary>记录同步失败：底栏显示失败原因，露出重试按钮。</summary>
+    private void SetFeishuFailed(int partNumber, string message)
     {
-        _feishuStatus[partNumber] = status;
-        if (string.IsNullOrEmpty(error))
-            _feishuError.Remove(partNumber);
-        else
-            _feishuError[partNumber] = error;
-
-        if (SelectedPart?.PartNumber != partNumber)
-            return;
-        FeishuSyncStatus = status;
-        FeishuSyncError = error;
-        OnPropertyChanged(nameof(FeishuSyncFailed));
-    }
-
-    /// <summary>切换分P 时刷新飞书状态属性（当前选中分P 视角）。</summary>
-    private void RefreshFeishuUi()
-    {
-        if (SelectedPart == null)
-        {
-            FeishuSyncStatus = string.Empty;
-            FeishuSyncError = string.Empty;
-        }
-        else
-        {
-            FeishuSyncStatus = _feishuStatus.TryGetValue(SelectedPart.PartNumber, out var s) ? s : string.Empty;
-            FeishuSyncError = _feishuError.TryGetValue(SelectedPart.PartNumber, out var e) ? e : string.Empty;
-        }
-        OnPropertyChanged(nameof(FeishuSyncFailed));
-        OnPropertyChanged(nameof(IsCurrentPartFeishuSyncing));
+        _feishuFailedPart = partNumber;
+        FeishuSyncFailed = true;
+        StatusMessage = $"⚠ 飞书同步失败：{message}";
     }
 
     /// <summary>
@@ -872,12 +842,9 @@ public class MainViewModel : ViewModelBase
         AiReadStatus = string.Empty;
         AiReadError = false;
         AiReadErrorMessage = string.Empty;
-        // 清空飞书同步状态（加载新视频/历史后旧状态失效）
-        _feishuStatus.Clear();
-        _feishuError.Clear();
+        // 清空飞书同步状态（加载新视频/历史后旧失败/重试目标失效）
         _feishuSyncing.Clear();
-        FeishuSyncStatus = string.Empty;
-        FeishuSyncError = string.Empty;
+        FeishuSyncFailed = false;
         OnPropertyChanged(nameof(AiParagraphs));
         OnPropertyChanged(nameof(HasAiParagraphs));
         OnPropertyChanged(nameof(ShowAiReadEmptyCard));
