@@ -94,7 +94,7 @@ jobs:
         run: Copy-Item BiliHelperWpf/Assets/alma.ico dist/alma.ico
 
       - name: Compile installer (Inno Setup)
-        uses: Minionguyjpro/Inno-Setup-Action@v2
+        uses: Minionguyjpro/Inno-Setup-Action@v1.2.9
         with:
           path: installer/BiliHelper.iss
           options: /DMyAppVersion=${{ steps.ver.outputs.version }}
