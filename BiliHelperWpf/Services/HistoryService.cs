@@ -24,7 +24,6 @@ namespace BiliHelperWpf.Services;
 ///   └── ...
 ///
 /// 日期文件夹（YYYYMMDD）为索引，BV 文件夹内 index+parts 结构。
-/// 旧版单文件 raw.json（{meta, data}）仍可读（读端兼容），重新 fetch 后自动升级为拆分格式。
 /// </summary>
 public static class HistoryService
 {
@@ -145,7 +144,7 @@ public static class HistoryService
 
     /// <summary>
     /// 在所有日期文件夹中搜索指定 BV 的视频目录，返回目录路径或 null。
-    /// 目录存在即视为有记录（无论里面是旧 raw.json 还是新 index.json）。
+    /// 目录存在即视为有记录（以 index.json 为准）。
     /// 同一 BV 可能因重复拉取存在于多个日期目录 —— 固定取最新日期目录
     /// （YYYYMMDD 字符串序即时间序），保证 read.json / parts 定位不分裂。
     /// </summary>
@@ -166,17 +165,6 @@ public static class HistoryService
                 return dirPath;
         }
         return null;
-    }
-
-    /// <summary>
-    /// 旧版单文件 raw.json 路径（仅兼容旧数据时用）；新格式不存在该文件。
-    /// </summary>
-    public static string? FindRawJson(string bvId)
-    {
-        var dir = FindVideoDir(bvId);
-        if (dir == null) return null;
-        var f = Path.Combine(dir, "raw.json");
-        return File.Exists(f) ? f : null;
     }
 
     /// <summary>
@@ -375,7 +363,7 @@ public static class HistoryService
         if (File.Exists(oldRaw))
         {
             try { File.Delete(oldRaw); }
-            catch { /* 删不掉不影响，读端仍兼容两者 */ }
+            catch { /* 删不掉不影响 */ }
         }
 
         App.Log($"历史记录已保存: {saveDir} (index.json + parts/{savedParts})");
@@ -388,7 +376,6 @@ public static class HistoryService
 
     /// <summary>
     /// 从本地加载视频（返回分P 元信息，entries 不加载，由调用方懒加载）。
-    /// 兼容旧版单文件 raw.json。
     /// </summary>
     public static BiliVideoInfo? LoadVideo(string bvId)
     {
@@ -397,83 +384,47 @@ public static class HistoryService
             return null;
 
         var indexPath = Path.Combine(dir, "index.json");
-        if (File.Exists(indexPath))
-        {
-            try
-            {
-                var json = File.ReadAllText(indexPath, Utf8NoBom);
-                var idx = JsonSerializer.Deserialize<IndexFile>(json);
-                if (idx == null || string.IsNullOrEmpty(idx.Meta.BvId))
-                    return null;
-
-                var info = new BiliVideoInfo
-                {
-                    Status = idx.Meta.Status,
-                    BvId = idx.Meta.BvId,
-                    Title = idx.Meta.Title,
-                    TotalParts = idx.Meta.TotalParts,
-                    CoverUrl = idx.CoverUrl,
-                    Uploader = idx.Uploader,
-                };
-
-                foreach (var pm in idx.Parts)
-                {
-                    info.Parts.Add(new PartInfo
-                    {
-                        PartNumber = pm.PartNumber,
-                        PartTitle = pm.PartTitle,
-                        Duration = pm.Duration,
-                        SubtitleCount = pm.SubtitleCount,
-                        SubtitleSource = pm.SubtitleSource,
-                        SubtitleLang = pm.SubtitleLang,
-                        // 无字幕分P 无需懒加载，直接标记已加载
-                        EntriesLoaded = pm.SubtitleCount == 0,
-                    });
-                }
-                return info;
-            }
-            catch (Exception ex)
-            {
-                App.Log($"加载 index.json 失败: {ex.Message}");
-                return null;
-            }
-        }
-
-        // 兼容旧格式（raw.json：{meta, data} 或直接 BiliVideoInfo）
-        var rawPath = FindRawJson(bvId);
-        if (rawPath == null)
+        if (!File.Exists(indexPath))
             return null;
 
         try
         {
-            var json = File.ReadAllText(rawPath, Utf8NoBom);
-            using var doc = JsonDocument.Parse(json);
-            if (doc.RootElement.TryGetProperty("data", out var dataElem))
-            {
-                var info = JsonSerializer.Deserialize<BiliVideoInfo>(dataElem.GetRawText());
-                MarkAllEntriesLoaded(info);
-                return info;
-            }
+            var json = File.ReadAllText(indexPath, Utf8NoBom);
+            var idx = JsonSerializer.Deserialize<IndexFile>(json);
+            if (idx == null || string.IsNullOrEmpty(idx.Meta.BvId))
+                return null;
 
-            var legacy = JsonSerializer.Deserialize<BiliVideoInfo>(json);
-            MarkAllEntriesLoaded(legacy);
-            return legacy;
+            var info = new BiliVideoInfo
+            {
+                Status = idx.Meta.Status,
+                BvId = idx.Meta.BvId,
+                Title = idx.Meta.Title,
+                TotalParts = idx.Meta.TotalParts,
+                CoverUrl = idx.CoverUrl,
+                Uploader = idx.Uploader,
+            };
+
+            foreach (var pm in idx.Parts)
+            {
+                info.Parts.Add(new PartInfo
+                {
+                    PartNumber = pm.PartNumber,
+                    PartTitle = pm.PartTitle,
+                    Duration = pm.Duration,
+                    SubtitleCount = pm.SubtitleCount,
+                    SubtitleSource = pm.SubtitleSource,
+                    SubtitleLang = pm.SubtitleLang,
+                    // 无字幕分P 无需懒加载，直接标记已加载
+                    EntriesLoaded = pm.SubtitleCount == 0,
+                });
+            }
+            return info;
         }
         catch (Exception ex)
         {
-            App.Log($"加载历史数据失败: {ex.Message}");
+            App.Log($"加载 index.json 失败: {ex.Message}");
             return null;
         }
-    }
-
-    /// <summary>
-    /// 旧格式一次性读全量时，标记所有分P entries 已加载。
-    /// </summary>
-    private static void MarkAllEntriesLoaded(BiliVideoInfo? info)
-    {
-        if (info == null) return;
-        foreach (var p in info.Parts)
-            p.EntriesLoaded = true;
     }
 
     /// <summary>
@@ -575,7 +526,7 @@ public static class HistoryService
 
     /// <summary>
     /// 加载所有历史记录，按日期分组（倒序）、组内按时间倒序。
-    /// 新格式只读 index.json（轻量），旧格式回退读 raw.json。
+    /// 只读 index.json（轻量）。
     /// </summary>
     public static List<HistoryGroup> LoadGroups()
     {
@@ -608,45 +559,13 @@ public static class HistoryService
                 try
                 {
                     var indexPath = Path.Combine(bvDir.FullName, "index.json");
-                    if (File.Exists(indexPath))
-                    {
-                        var json = File.ReadAllText(indexPath, Utf8NoBom);
-                        var idx = JsonSerializer.Deserialize<IndexFile>(json);
-                        if (idx?.Meta != null && !string.IsNullOrEmpty(idx.Meta.BvId))
-                            group.Items.Add(idx.Meta);
-                        continue;
-                    }
-
-                    // 旧格式 raw.json
-                    var rawFile = Path.Combine(bvDir.FullName, "raw.json");
-                    if (!File.Exists(rawFile))
+                    if (!File.Exists(indexPath))
                         continue;
 
-                    var rawJson = File.ReadAllText(rawFile, Utf8NoBom);
-                    using var doc = JsonDocument.Parse(rawJson);
-
-                    if (doc.RootElement.TryGetProperty("meta", out var metaElem))
-                    {
-                        var item = JsonSerializer.Deserialize<HistoryItem>(metaElem.GetRawText());
-                        if (item != null)
-                            group.Items.Add(item);
-                    }
-                    else if (doc.RootElement.TryGetProperty("data", out var dataElem))
-                    {
-                        var info = JsonSerializer.Deserialize<BiliVideoInfo>(dataElem.GetRawText());
-                        if (info != null)
-                        {
-                            group.Items.Add(new HistoryItem
-                            {
-                                BvId = info.BvId,
-                                Title = info.Title,
-                                TotalParts = info.TotalParts,
-                                TotalSubtitles = info.TotalSubtitleCount,
-                                Status = info.Status,
-                                FetchTimeIso = bvDir.LastWriteTime.ToString("yyyy-MM-ddTHH:mm:ss"),
-                            });
-                        }
-                    }
+                    var json = File.ReadAllText(indexPath, Utf8NoBom);
+                    var idx = JsonSerializer.Deserialize<IndexFile>(json);
+                    if (idx?.Meta != null && !string.IsNullOrEmpty(idx.Meta.BvId))
+                        group.Items.Add(idx.Meta);
                 }
                 catch
                 {

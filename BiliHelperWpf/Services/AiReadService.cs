@@ -68,26 +68,16 @@ public class AiReadService
         IProgress<string>? progress = null,
         CancellationToken ct = default)
     {
-        // ── 定位分P字幕文件：新格式 parts/NNN.json，旧格式回退 raw.json ──
-        string partArgs;
+        // ── 定位分P字幕文件：parts/NNN.json（--part-file 契约）──
         var partFile = HistoryService.FindPartJson(bvId, partNumber);
-        if (partFile != null)
+        if (partFile == null)
         {
-            partArgs = $"\"{PythonScript}\" --part-file \"{partFile}\"";
-            App.Log($"AiReadService 开始, bvId={bvId}, part={partNumber}, partFile={partFile}");
+            onError?.Invoke($"未找到该分P的字幕数据: bvId={bvId}, part={partNumber}");
+            App.Log($"AiReadService: 找不到分P字幕文件, bvId={bvId}, part={partNumber}");
+            return;
         }
-        else
-        {
-            var rawPath = HistoryService.FindRawJson(bvId);
-            if (rawPath == null)
-            {
-                onError?.Invoke($"未找到历史数据: {bvId}");
-                App.Log($"AiReadService: 找不到字幕文件, bvId={bvId}");
-                return;
-            }
-            partArgs = $"\"{PythonScript}\" --raw \"{rawPath}\" --part {partNumber}";
-            App.Log($"AiReadService 开始(旧格式兼容), bvId={bvId}, part={partNumber}, raw={rawPath}");
-        }
+        var partArgs = $"\"{PythonScript}\" --part-file \"{partFile}\"";
+        App.Log($"AiReadService 开始, bvId={bvId}, part={partNumber}, partFile={partFile}");
         progress?.Report("准备启动 AI 整理...");
 
         // ── 启动子进程 ─────────────────────────────────────────

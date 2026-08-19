@@ -8,7 +8,7 @@ namespace BiliHelperWpf.Models;
 /// </summary>
 public class ReadPartData
 {
-    /// <summary>分P 号，对应 raw.json 的 part_number。</summary>
+    /// <summary>分P 号，对应 parts/NNN.json 的 PartNumber。</summary>
     [JsonPropertyName("part_number")]
     public int PartNumber { get; init; }
 

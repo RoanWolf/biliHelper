@@ -1,7 +1,7 @@
 """ai_read.py — 单分P AI 阅读版生成脚本（供 WPF 子进程调用）。
 
 WPF 子进程调用契约:
-    uv run python AiHelper/ai_read.py --raw <raw.json路径> --part <分P号>
+    python ai_read.py --part-file <parts/NNN.json 路径>
 
 stdout 逐行输出 JSONL（UTF-8，每行 flush）:
     {"type":"meta",     "bv_id":"...", "title":"...", "part_number":1,
@@ -31,10 +31,11 @@ from openai import (
     APITimeoutError,
 )
 
-# 确保能导入 AiHelper 包（无论工作目录在哪）
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+# 确保本目录模块（reading.py）可导入：embed 发布版走 _pth 隔离模式，
+# 脚本所在目录不会自动进 sys.path（与开发机 venv 模式不同）
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from AiHelper.reading import AIClient
+from reading import AIClient
 
 # 强制 stdout/stderr 使用 UTF-8，避免 Windows GBK 终端乱码/崩溃
 for _stream in (sys.stdout, sys.stderr):
@@ -85,13 +86,6 @@ SYSTEM_PROMPT = """你是字幕整理助手。
 }
 """
 
-USER_PROMPT_TEMPLATE = """视频标题：__TITLE__
-
-字幕内容（每条字幕前的 [索引] 即 source_index）：
-
-__SUBTITLES__
-"""
-
 
 def emit(obj: dict) -> None:
     """向 stdout 输出一行 JSON，并立即 flush。"""
@@ -103,41 +97,25 @@ def progress(msg: str) -> None:
     print(msg, file=sys.stderr, flush=True)
 
 
-def load_parts(raw_path: Path) -> tuple[dict, list[dict]]:
-    """读取 raw.json，兼容新格式 {meta,data} 与旧格式（直接是视频信息）。"""
-    data = json.loads(raw_path.read_text(encoding="utf-8-sig"))
-    video = (
-        data.get("data", data) if isinstance(data, dict) and "data" in data else data
+def fail(msg: str) -> int:
+    """向 stderr 输出错误并返回失败退出码。"""
+    print(f"[ERROR] {msg}", file=sys.stderr, flush=True)
+    return 1
+
+
+def build_user_prompt(title: str, entries: list[dict]) -> str:
+    """构造 user 消息内容：视频标题 + 带 [索引] 的字幕文本。
+
+    每条字幕前的 [索引] 供模型填写 source_start_index/source_end_index。
+    """
+    subtitle_lines = "\n".join(
+        f"[{e.get('Index') or e.get('index')}] {e.get('Text') or e.get('text', '')}"
+        for e in entries
     )
-    parts = video.get("Parts") or video.get("parts") or []
-    return video, parts
-
-
-def find_part(parts: list[dict], part_number: int) -> dict | None:
-    for p in parts:
-        if (p.get("PartNumber") or p.get("part_number")) == part_number:
-            return p
-    return None
-
-
-def get_entries(part: dict) -> list[dict]:
-    return part.get("Entries") or part.get("entries") or []
-
-
-def build_subtitle_text(entries: list[dict]) -> str:
-    """把字幕条目转成带索引文本，供 AI 引用。"""
-    lines = []
-    for e in entries:
-        idx = e.get("Index") or e.get("index")
-        text = e.get("Text") or e.get("text", "")
-        lines.append(f"[{idx}] {text}")
-    return "\n".join(lines)
-
-
-def build_prompt(title: str, subtitle_text: str) -> str:
-    """构造 user 消息内容（视频标题 + 字幕），system 提示词固定用 SYSTEM_PROMPT。"""
-    return USER_PROMPT_TEMPLATE.replace("__TITLE__", title or "").replace(
-        "__SUBTITLES__", subtitle_text
+    return (
+        f"视频标题：{title}\n\n"
+        "字幕内容（每条字幕前的 [索引] 即 source_index）：\n\n"
+        f"{subtitle_lines}"
     )
 
 
@@ -200,15 +178,18 @@ def parse_and_validate(result: str | None, subtitle_count: int) -> list[dict]:
     paragraphs: list[dict] = []
     for item in raw_paragraphs:
         if not isinstance(item, dict) or not isinstance(item.get("text"), str):
+            progress("跳过无效段落（缺少 text 字段）")
             continue
         text = item["text"].strip()
         if not text:
+            progress("跳过无效段落（text 为空）")
             continue
 
         try:
             start = int(item.get("source_start_index", 0))
             end = int(item.get("source_end_index", 0))
         except (TypeError, ValueError):
+            progress("跳过无效段落（source 索引不是整数）")
             continue
 
         # clamp 到有效区间，防止模型越界
@@ -232,11 +213,57 @@ def parse_and_validate(result: str | None, subtitle_count: int) -> list[dict]:
     return paragraphs
 
 
+def run_with_retry(
+    client: AIClient,
+    system: str,
+    user: str,
+    subtitle_count: int,
+) -> tuple[list[dict] | None, str]:
+    """调用 DeepSeek 并按错误分类重试，返回 (段落列表, 错误描述)。
+
+    网络/5xx 最多重试 RETRY_NETWORK 次，JSON 解析失败重试 RETRY_JSON 次，
+    确定性错误（认证/4xx/限流等）不重试；总耗时上界约 15 分钟（超时兜底）。
+    """
+    network_attempts = 0
+    json_attempts = 0
+    while True:
+        try:
+            result = client.chat(system, user)
+            return parse_and_validate(result, subtitle_count), ""
+        except Exception as e:  # noqa: BLE001 — 统一捕获后按类型分类处理
+            last_error = describe_api_error(e)
+
+            if is_retryable_api_error(e):
+                # 网络/5xx：最多重试 RETRY_NETWORK 次
+                network_attempts += 1
+                if network_attempts <= RETRY_NETWORK:
+                    progress(
+                        f"网络/服务端异常，{network_attempts}/{RETRY_NETWORK} 次重试中..."
+                    )
+                    time.sleep(RETRY_BACKOFF_SECONDS)
+                    continue
+                return None, last_error
+
+            # 确定性 API 错误（401 认证/404 模型不存在/429 限流等 4xx）不重试
+            if isinstance(e, APIStatusError):
+                return None, last_error
+
+            # JSON 解析失败（ValueError）最多重试 RETRY_JSON 次
+            if isinstance(e, ValueError):
+                json_attempts += 1
+                if json_attempts <= RETRY_JSON:
+                    progress(f"解析失败，{json_attempts}/{RETRY_JSON} 次重试中...")
+                    continue
+
+            # 其余未知异常：不重试，避免重复计费
+            return None, last_error
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="单分P AI 阅读版生成")
-    parser.add_argument("--raw", help="raw.json 路径（旧格式，与 --part 搭配）")
-    parser.add_argument("--part", type=int, help="要处理的分P 号")
-    parser.add_argument("--part-file", help="单分P 字幕文件路径（新格式 parts/NNN.json，无需 --raw/--part）")
+    parser.add_argument(
+        "--part-file", help="单分P 字幕文件路径（新格式 parts/NNN.json）"
+    )
     parser.add_argument(
         "--test",
         action="store_true",
@@ -249,71 +276,39 @@ def main() -> int:
         try:
             client = AIClient.from_env()
         except ValueError as e:
-            print(f"[ERROR] {e}", file=sys.stderr)
-            return 1
+            return fail(str(e))
         ok, message = client.test_connectivity()
         emit({"type": "test", "ok": ok, "message": message})
         return 0 if ok else 1
 
-    # ── 确定入口：新格式 --part-file，或旧格式 --raw + --part ──
-    if args.part_file:
-        part_path = Path(args.part_file)
-        if not part_path.is_file():
-            print(f"[ERROR] 找不到分P文件: {part_path}", file=sys.stderr)
-            return 1
-        try:
-            part = json.loads(part_path.read_text(encoding="utf-8-sig"))
-        except (json.JSONDecodeError, OSError) as e:
-            print(f"[ERROR] 读取分P文件失败: {e}", file=sys.stderr)
-            return 1
-        entries = part.get("Entries") or []
-        part_title = part.get("PartTitle") or ""
-        # parts/NNN.json 的祖父目录即 BV 目录名
-        bv_id = part_path.parent.parent.name
-        # 视频总标题从同目录 index.json 读取（best-effort，读不到置空不阻塞）
-        title = ""
-        index_path = part_path.parent.parent / "index.json"
-        if index_path.is_file():
-            try:
-                idx = json.loads(index_path.read_text(encoding="utf-8-sig"))
-                title = (idx.get("Meta") or {}).get("Title") or ""
-            except (json.JSONDecodeError, OSError):
-                pass
-        part_no = int(part.get("PartNumber") or part_path.stem)
-    elif args.raw and args.part is not None:
-        raw_path = Path(args.raw)
+    # ── 读取单分P 字幕文件 ────────────────────────────────
+    if not args.part_file:
+        return fail("需要 --part-file 参数")
+    part_path = Path(args.part_file)
+    if not part_path.is_file():
+        return fail(f"找不到分P文件: {part_path}")
+    try:
+        part = json.loads(part_path.read_text(encoding="utf-8-sig"))
+    except (json.JSONDecodeError, OSError) as e:
+        return fail(f"读取分P文件失败: {e}")
 
-        if not raw_path.is_file():
-            print(f"[ERROR] 找不到 raw.json: {raw_path}", file=sys.stderr)
-            return 1
-
-        try:
-            video, parts = load_parts(raw_path)
-        except (json.JSONDecodeError, OSError) as e:
-            print(f"[ERROR] 读取 raw.json 失败: {e}", file=sys.stderr)
-            return 1
-
-        if not parts:
-            print("[ERROR] raw.json 中没有分P数据", file=sys.stderr)
-            return 1
-
-        part = find_part(parts, args.part)
-        if part is None:
-            print(f"[ERROR] 找不到分P P{args.part}", file=sys.stderr)
-            return 1
-
-        entries = get_entries(part)
-        bv_id = video.get("BvId") or video.get("bv_id") or raw_path.stem
-        title = video.get("Title") or video.get("title") or ""
-        part_title = part.get("PartTitle") or part.get("part_title") or ""
-        part_no = args.part
-    else:
-        print("[ERROR] 需要 --part-file 或 (--raw + --part) 参数", file=sys.stderr)
-        return 1
-
+    entries = part.get("Entries") or []
     if not entries:
-        print(f"[ERROR] P{part_no} 没有字幕条目", file=sys.stderr)
-        return 1
+        return fail(f"P{part.get('PartNumber') or part_path.stem} 没有字幕条目")
+
+    part_no = int(part.get("PartNumber") or part_path.stem)
+    part_title = part.get("PartTitle") or ""
+    # parts/NNN.json 的祖父目录即 BV 目录名
+    bv_id = part_path.parent.parent.name
+    # 视频总标题从同目录 index.json 读取（best-effort，读不到置空不阻塞）
+    title = ""
+    index_path = part_path.parent.parent / "index.json"
+    if index_path.is_file():
+        try:
+            idx = json.loads(index_path.read_text(encoding="utf-8-sig"))
+            title = (idx.get("Meta") or {}).get("Title") or ""
+        except (json.JSONDecodeError, OSError):
+            pass
 
     # ── meta：WPF 收到后即可定位存储路径 ──────────────────
     emit(
@@ -327,60 +322,18 @@ def main() -> int:
         }
     )
 
-    user_prompt = build_prompt(title, build_subtitle_text(entries))
-
     # ── 初始化客户端 ──────────────────────────────────────
     try:
         client = AIClient.from_env()
     except ValueError as e:
-        print(f"[ERROR] {e}", file=sys.stderr)
-        return 1
+        return fail(str(e))
 
     progress(f"正在调用 DeepSeek (P{part_no} · {len(entries)} 条字幕)...")
-
-    # ── 调用 DeepSeek（分类重试）──────────────────────────
-    # 重试次数按错误类型分级（见文件头 RETRY_* 注释）；总耗时上界:
-    #   最长 3 次网络调用 × 300s 超时 + 2 次退避 ≈ 15 分钟，由超时而非重试兜底。
-    paragraphs = None
-    last_error = ""
-    network_attempts = 0
-    json_attempts = 0
-    while True:
-        try:
-            result = client.chat(SYSTEM_PROMPT, user_prompt)
-            paragraphs = parse_and_validate(result, len(entries))
-            break
-        except Exception as e:  # noqa: BLE001 — 统一捕获后按类型分类处理
-            last_error = describe_api_error(e)
-
-            if is_retryable_api_error(e):
-                # 网络/5xx：最多重试 RETRY_NETWORK 次
-                network_attempts += 1
-                if network_attempts <= RETRY_NETWORK:
-                    progress(
-                        f"网络/服务端异常，{network_attempts}/{RETRY_NETWORK} 次重试中..."
-                    )
-                    time.sleep(RETRY_BACKOFF_SECONDS)
-                    continue
-                break
-
-            # 确定性 API 错误（401 认证/404 模型不存在/429 限流等 4xx）不重试
-            if isinstance(e, APIStatusError):
-                break
-
-            # JSON 解析失败（ValueError）最多重试 RETRY_JSON 次
-            if isinstance(e, ValueError):
-                json_attempts += 1
-                if json_attempts <= RETRY_JSON:
-                    progress(f"解析失败，{json_attempts}/{RETRY_JSON} 次重试中...")
-                    continue
-
-            # 其余未知异常：不重试，避免重复计费
-            break
-
+    paragraphs, error = run_with_retry(
+        client, SYSTEM_PROMPT, build_user_prompt(title, entries), len(entries)
+    )
     if paragraphs is None:
-        print(f"[ERROR] AI 整理失败: {last_error}", file=sys.stderr)
-        return 1
+        return fail(f"AI 整理失败: {error}")
 
     # ── complete：携带整理结果 ────────────────────────────
     emit(
