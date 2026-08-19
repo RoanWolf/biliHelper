@@ -96,6 +96,9 @@ jobs:
       - name: Sanity check backend
         shell: pwsh
         run: |
+          # 与 WPF 运行契约一致：所有 spawn 点都注入 PYTHONIOENCODING=utf-8，
+          # embed 版 Python 默认无 UTF-8 模式，打印中文帮助文本会按 cp1252 编码而崩
+          $env:PYTHONIOENCODING = "utf-8"
           $py = "dist/bilihelperCore/.venv/Scripts/python.exe"
           $out = & $py -c "import sys; print(sys.version)" 2>&1
           Write-Output "python version: $out"
