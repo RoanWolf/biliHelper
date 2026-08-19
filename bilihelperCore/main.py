@@ -16,8 +16,8 @@ if __name__ == "__main__":
     import sys
     from pathlib import Path
 
-    parser = argparse.ArgumentParser(description="Bilibili 字幕提取工具")
-    parser.add_argument("url", help="Bilibili 视频 URL")
+    parser = argparse.ArgumentParser(description="B 站 / YouTube 字幕提取工具")
+    parser.add_argument("url", help="B 站或 YouTube 视频 URL")
     parser.add_argument(
         "-c", "--cookies", default=None, help="Cookies 文件路径 (netscape 格式)"
     )

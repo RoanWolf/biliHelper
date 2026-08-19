@@ -493,16 +493,6 @@ public class MainViewModel : ViewModelBase
         App.Log($"历史记录已删除: {item.BvId}");
     }
 
-    /// <summary>
-    /// 从 URL 中提取 BV ID。
-    /// </summary>
-    private static string? ExtractBvId(string url)
-    {
-        if (string.IsNullOrWhiteSpace(url)) return null;
-        var m = Regex.Match(url, @"BV[\w]{10,}");
-        return m.Success ? m.Value : null;
-    }
-
     private async Task FetchAsync()
     {
         if (!CanFetch) return;

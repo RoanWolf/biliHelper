@@ -61,6 +61,29 @@ _YTDLP_CMD = [sys.executable, "-m", "yt_dlp"]
 
 _SUB_LANGS_PREFER = ["ai-zh", "zh-Hans", "zh-Hant", "zh", "ai-en", "en", "ja"]
 
+# YouTube 字幕语言档位：只拉这几档（YouTube 自动翻译有 60+ 语言，全拉浪费带宽）。
+# zh-Hans 经实测可命中 YouTube 自动机翻中文字幕（zh-Hans-en）。
+_YOUTUBE_SUB_LANGS = "zh-Hans,zh-Hant,zh,en"
+
+# YouTube 视频 ID 提取：watch?v= / shorts / embed / live / youtu.be
+_YT_URL_RE = re.compile(
+    r"(?:youtube\.com/watch\?[^#\s]*[?&]v="
+    r"|youtube\.com/(?:shorts|embed|live)/"
+    r"|youtu\.be/)([A-Za-z0-9_-]{11})",
+    re.IGNORECASE,
+)
+
+
+def is_youtube(url: str) -> bool:
+    """判断 URL 是否属于 YouTube。"""
+    low = url.lower()
+    return "youtube.com" in low or "youtu.be" in low
+
+
+def _sub_langs_arg(url: str) -> str:
+    """字幕语言参数：B 站拉全部（ai-zh 等命名特殊），YouTube 限中文档位。"""
+    return _YOUTUBE_SUB_LANGS if is_youtube(url) else "all,-danmaku"
+
 _SRT_TIME_RE = re.compile(
     r"(\d{2}):(\d{2}):(\d{2})[,.](\d{3})\s*-->\s*"
     r"(\d{2}):(\d{2}):(\d{2})[,.](\d{3})"
@@ -95,7 +118,7 @@ def _run_ytdlp(args: list[str], timeout: int = 120) -> subprocess.CompletedProce
     env["PYTHONIOENCODING"] = "utf-8"
     try:
         return subprocess.run(
-            _YTDLP_CMD + args,
+            _YTDLP_CMD + list(args),
             capture_output=True,
             text=True,
             timeout=timeout,
@@ -110,7 +133,9 @@ def _run_ytdlp(args: list[str], timeout: int = 120) -> subprocess.CompletedProce
         raise BiliHelperError(f"找不到 Python 解释器: {sys.executable}") from None
 
 
-def _cookies_arg(cookies: str | None = None) -> tuple[list[str], Path | None]:
+def _cookies_arg(
+    cookies: str | None = None, url: str | None = None
+) -> tuple[list[str], Path | None]:
     """返回 (yt-dlp cookies 参数, 临时副本路径或 None)。
 
     cookies 文件复制到临时副本再传给 yt-dlp：yt-dlp close() 会无条件写回
@@ -118,8 +143,9 @@ def _cookies_arg(cookies: str | None = None) -> tuple[list[str], Path | None]:
     会让整次抓取崩溃，还会改写 auth.py 原子维护的正式文件 —— 副本隔离两者。
     文件不存在时不传任何 cookie（匿名抓取）；不回退 --cookies-from-browser
     （该参数期望浏览器名，收到路径会直接报错）。
+    YouTube 公开字幕匿名可拉，B 站 cookies 不适用，直接跳过。
     """
-    if cookies is None:
+    if cookies is None or (url and is_youtube(url)):
         return [], None
     p = Path(cookies)
     if not p.is_file():
@@ -197,7 +223,7 @@ def get_parts(url: str, cookies: str | None = None) -> tuple[list[dict], str]:
     """
     url = _normalize_url(url)
     args = ["--flat-playlist", "--dump-json", "--skip-download", "--yes-playlist"]
-    cookie_args, cookie_tmp = _cookies_arg(cookies)
+    cookie_args, cookie_tmp = _cookies_arg(cookies, url)
     try:
         result = _run_ytdlp(args + cookie_args + [url])
     finally:
@@ -278,18 +304,18 @@ def get_subtitles(
 
     # ── Step 2: 批量下载所有分P 字幕 ─────────────────────────────
     with tempfile.TemporaryDirectory(prefix="bili_helper_") as tmpdir:
-        bv_id = _extract_bv_from_url(url)
+        bv_id = _extract_video_id(url)
 
         # 模板: yt-dlp 产出 001_BVxxxxx.ai-zh.srt 这类文件
         tmpl = str(Path(tmpdir) / "%(playlist_index)03d_%(display_id)s")
 
-        cookie_args, cookie_tmp = _cookies_arg(cookies)
+        cookie_args, cookie_tmp = _cookies_arg(cookies, url)
         dl_args = (
             [
                 "--write-subs",
                 "--write-auto-subs",
                 "--sub-langs",
-                "all,-danmaku",
+                _sub_langs_arg(url),
                 "--sub-format",
                 "srt",
                 "--skip-download",
@@ -342,7 +368,7 @@ def get_subtitles(
                 # 如果是多P 视频，可能需要从 --dump-json (非 flat) 取 fulltitle
                 # 这里先 fallback
                 if total_parts > 1 and not bv_id:
-                    bv_id = _extract_bv_from_url(pi.get("webpage_url", url))
+                    bv_id = _extract_video_id(pi.get("webpage_url", url))
 
             candidates = sub_by_part.get(pn, [])
 
@@ -394,7 +420,7 @@ def get_subtitles(
 
     return {
         "status": status,
-        "bv_id": bv_id or _extract_bv_from_url(url),
+        "bv_id": bv_id or _extract_video_id(url),
         "title": title,
         "total_parts": total_parts,
         "parts": parts_data,
@@ -448,7 +474,7 @@ def get_subtitles_stream(
     if not parts_info:
         raise BiliHelperError("未获取到任何分P信息")
 
-    bv_id = _extract_bv_from_url(url)
+    bv_id = _extract_video_id(url)
     title = playlist_title or parts_info[0].get("part_title", "")
     total_parts = len(parts_info)
 
@@ -457,7 +483,7 @@ def get_subtitles_stream(
     any_subs = False
     all_subs = True
 
-    cookie_args, cookie_tmp = _cookies_arg(cookies)
+    cookie_args, cookie_tmp = _cookies_arg(cookies, url)
 
     with tempfile.TemporaryDirectory(prefix="bili_helper_") as tmpdir:
         for pi in parts_info:
@@ -499,7 +525,7 @@ def get_subtitles_stream(
                     "--write-subs",
                     "--write-auto-subs",
                     "--sub-langs",
-                    "all,-danmaku",
+                    _sub_langs_arg(url),
                     "--sub-format",
                     "srt",
                     "--skip-download",
@@ -586,16 +612,24 @@ def get_subtitles_stream(
 # ---------------------------------------------------------------------------
 
 
-def _extract_bv_from_url(url: str) -> str:
+def _extract_video_id(url: str) -> str:
+    """提取视频 ID：B 站 BV 号或 YouTube 11 位 ID；提取不到则原样返回。"""
     m = re.search(r"BV[\w]+", url, re.IGNORECASE)
-    return m.group(0) if m else url
+    if m:
+        return m.group(0)
+    m = _YT_URL_RE.search(url)
+    if m:
+        return m.group(1)
+    return url
 
 
 def _normalize_url(url: str) -> str:
-    """如果是裸 BV 号，自动补全为完整 Bilibili 视频 URL。"""
-    m = re.search(r"^BV[\w]{10,}$", url.strip(), re.IGNORECASE)
-    if m:
-        return f"https://www.bilibili.com/video/{m.group(0)}"
+    """裸 BV 号 → 完整 Bilibili URL；裸 11 位 YouTube ID → youtu.be URL。"""
+    s = url.strip()
+    if re.search(r"^BV[\w]{10,}$", s, re.IGNORECASE):
+        return f"https://www.bilibili.com/video/{s}"
+    if re.fullmatch(r"[A-Za-z0-9_-]{11}", s):
+        return f"https://youtu.be/{s}"
     return url
 
 

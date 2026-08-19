@@ -65,6 +65,7 @@
 
                     <ui:TextBox Grid.Column="0"
                                 Text="{Binding Url, UpdateSourceTrigger=PropertyChanged}"
+                                PlaceholderText="粘贴 B 站 / YouTube 视频链接（支持 BV 号、完整 URL）"
                                 FontSize="14"
                                 Height="38"
                                 VerticalContentAlignment="Center" />
