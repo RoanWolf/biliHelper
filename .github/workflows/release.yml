@@ -97,10 +97,13 @@ jobs:
         shell: pwsh
         run: |
           $py = "dist/bilihelperCore/.venv/Scripts/python.exe"
-          & $py -c "import yt_dlp, openai, requests, qrcode, PIL; print('IMPORTS-OK', yt_dlp.version.__version__)"
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          & $py dist/bilihelperCore/main.py --help | Out-Null
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $out = & $py -c "import sys; print(sys.version)" 2>&1
+          Write-Output "python version: $out"
+          $out = & $py -c "import yt_dlp, openai, requests, qrcode, PIL; print('IMPORTS-OK', yt_dlp.version.__version__)" 2>&1
+          if ($LASTEXITCODE -ne 0) { Write-Output "::error::imports failed (exit $LASTEXITCODE): $($out -join ' | ')"; exit 1 }
+          $out = & $py dist/bilihelperCore/main.py --help 2>&1
+          if ($LASTEXITCODE -ne 0) { Write-Output "::error::main.py failed (exit $LASTEXITCODE): $($out -join ' | ')"; exit 1 }
+          Write-Output "sanity check OK"
 
       - name: Copy installer icon
         shell: pwsh
