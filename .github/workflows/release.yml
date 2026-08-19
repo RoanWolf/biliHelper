@@ -58,8 +58,21 @@ jobs:
       - name: Copy Python backend sources
         shell: pwsh
         run: |
-          robocopy BiliHelperCore dist/bilihelperCore /E /XD .venv __pycache__ /NFL /NDL /NJH /NJS /NP
-          if ($LASTEXITCODE -ge 8) { exit $LASTEXITCODE }
+          $src = (Resolve-Path "BiliHelperCore").Path
+          $dst = "dist/bilihelperCore"
+          New-Item -ItemType Directory -Force -Path $dst | Out-Null
+          Get-ChildItem -LiteralPath $src -Recurse -Force | ForEach-Object {
+            $rel = $_.FullName.Substring($src.Length).TrimStart('\')
+            if ($rel -like '.venv*' -or $rel -like '*\__pycache__*') { return }
+            $target = Join-Path $dst $rel
+            if ($_.PSIsContainer) {
+              New-Item -ItemType Directory -Force -Path $target | Out-Null
+            } else {
+              Copy-Item -LiteralPath $_.FullName -Destination $target -Force
+              if (-not (Test-Path -LiteralPath $target)) { throw "copy failed: $rel" }
+            }
+          }
+          Write-Output "backend sources copied: $((Get-ChildItem -Recurse -File $dst | Measure-Object).Count) files"
 
       - name: Download Python embed runtime
         shell: pwsh
