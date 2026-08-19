@@ -506,6 +506,7 @@
 
                             <!-- 段落列表（已整理的阅读版） -->
                             <ScrollViewer Grid.Row="2"
+                                          x:Name="AiReadScrollViewer"
                                           VerticalScrollBarVisibility="Auto"
                                           HorizontalScrollBarVisibility="Disabled"
                                           Padding="24,16"

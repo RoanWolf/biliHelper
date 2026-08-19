@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -42,6 +42,10 @@ public partial class MainWindow : Wpf.Ui.Controls.FluentWindow
                         var scrollViewer = WpfHelper.FindVisualChild<ScrollViewer>(SubtitleListBox);
                         scrollViewer?.ScrollToTop();
                     }
+
+                    // AI 阅读 tab：与原始字幕一致，切分P 时滚动回顶部（独立滚动位置）
+                    if (AiReadScrollViewer?.IsLoaded == true)
+                        AiReadScrollViewer.ScrollToTop();
                 });
             }
 
