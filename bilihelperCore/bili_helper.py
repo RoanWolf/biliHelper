@@ -46,6 +46,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 from pathlib import Path
 
@@ -54,7 +55,9 @@ from pathlib import Path
 # ---------------------------------------------------------------------------
 
 _PROJECT_DIR = Path(__file__).resolve().parent
-_YTDLP = str(_PROJECT_DIR / ".venv" / "Scripts" / "yt-dlp.exe")
+# 用模块方式调用 yt-dlp（官方推荐）：不依赖 .venv/Scripts/yt-dlp.exe launcher
+# （pip install --target 组装发布包时不会生成该 exe），版本与 site-packages 中的模块永远一致
+_YTDLP_CMD = [sys.executable, "-m", "yt_dlp"]
 
 _SUB_LANGS_PREFER = ["ai-zh", "zh-Hans", "zh-Hant", "zh", "ai-en", "en", "ja"]
 
@@ -87,12 +90,12 @@ class NetworkError(BiliHelperError):
 
 
 def _run_ytdlp(args: list[str], timeout: int = 120) -> subprocess.CompletedProcess:
-    """运行 yt-dlp，统一编码。"""
+    """运行 yt-dlp（模块方式），统一编码。"""
     env = os.environ.copy()
     env["PYTHONIOENCODING"] = "utf-8"
     try:
         return subprocess.run(
-            [_YTDLP] + args,
+            _YTDLP_CMD + args,
             capture_output=True,
             text=True,
             timeout=timeout,
@@ -104,7 +107,7 @@ def _run_ytdlp(args: list[str], timeout: int = 120) -> subprocess.CompletedProce
     except subprocess.TimeoutExpired:
         raise NetworkError(f"yt-dlp 超时 ({timeout}s)") from None
     except FileNotFoundError:
-        raise BiliHelperError(f"找不到 yt-dlp: {_YTDLP}\n请先运行: uv sync") from None
+        raise BiliHelperError(f"找不到 Python 解释器: {sys.executable}") from None
 
 
 def _cookies_arg(cookies: str | None = None) -> tuple[list[str], Path | None]:
