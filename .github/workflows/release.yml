@@ -1,0 +1,106 @@
+name: Release
+
+# 推送 v* tag 触发云端打包发布：
+#   1) dotnet publish (self-contained win-x64) → dist/app
+#   2) pip 安装 Python 依赖 → dist/bilihelperCore/.venv/Lib/site-packages
+#   3) 复制后端源码 + 下载官方 Python 3.13 embed 运行时 → 组装 dist/bilihelperCore/.venv
+#   4) Inno Setup 编译 → dist/BiliHelper-Setup-v{version}.exe
+#   5) 创建 GitHub Release 并上传安装包
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Extract version from tag
+        id: ver
+        shell: pwsh
+        run: |
+          $v = "${{ github.ref_name }}".TrimStart('v')
+          Write-Output "version=$v" >> $env:GITHUB_OUTPUT
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Publish WPF (self-contained win-x64)
+        shell: pwsh
+        run: |
+          dotnet publish BiliHelperWpf/BiliHelperWpf.csproj `
+            -c Release -r win-x64 --self-contained true `
+            -p:PublishSingleFile=false -p:DebugType=None -o dist/app
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Setup Python (for pip install only)
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install Python dependencies
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist/bilihelperCore/.venv/Lib/site-packages | Out-Null
+          python -m pip install --no-compile --target dist/bilihelperCore/.venv/Lib/site-packages `
+            "openai>=2.53.0" "yt-dlp>=2024.1" "requests>=2.30.0" "qrcode>=7.4" "pillow>=9.0.0"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Copy Python backend sources
+        shell: pwsh
+        run: |
+          robocopy BiliHelperCore dist/bilihelperCore /E /XD .venv __pycache__ /NFL /NDL /NJH /NJS /NP
+          if ($LASTEXITCODE -ge 8) { exit $LASTEXITCODE }
+
+      - name: Download Python embed runtime
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist/bilihelperCore/.venv/Scripts | Out-Null
+          Invoke-WebRequest -Uri "https://www.python.org/ftp/python/3.13.5/python-3.13.5-embed-amd64.zip" -OutFile embed.zip
+          Expand-Archive -Path embed.zip -DestinationPath dist/bilihelperCore/.venv/Scripts
+          Get-ChildItem dist/bilihelperCore/.venv/Scripts | Select-Object -ExpandProperty Name
+
+      - name: Write python313._pth (isolated layout)
+        shell: pwsh
+        run: |
+          # 相对路径基于 _pth 所在目录 (.venv/Scripts) 解析:
+          #   python313.zip      embed 自带标准库
+          #   .                  Scripts 目录
+          #   ..\..              bilihelperCore（让 main.py 能 import bili_helper）
+          #   ..\Lib\site-packages  第三方依赖
+          $pth = "python313.zip`n.`n..\..`n..\Lib\site-packages`nimport site"
+          [System.IO.File]::WriteAllText("dist/bilihelperCore/.venv/Scripts/python313._pth", $pth, (New-Object System.Text.UTF8Encoding($false)))
+
+      - name: Sanity check backend
+        shell: pwsh
+        run: |
+          $py = "dist/bilihelperCore/.venv/Scripts/python.exe"
+          & $py -c "import yt_dlp, openai, requests, qrcode, PIL; print('IMPORTS-OK', yt_dlp.version.__version__)"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & $py dist/bilihelperCore/main.py --help | Out-Null
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Copy installer icon
+        shell: pwsh
+        run: Copy-Item BiliHelperWpf/Assets/alma.ico dist/alma.ico
+
+      - name: Compile installer (Inno Setup)
+        uses: Minionguyjpro/Inno-Setup-Action@v2
+        with:
+          path: installer/BiliHelper.iss
+          options: /DMyAppVersion=${{ steps.ver.outputs.version }}
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/BiliHelper-Setup-v*.exe
+          generate_release_notes: true

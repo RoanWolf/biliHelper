@@ -42,3 +42,7 @@ BiliHelperCore/AiHelper/test_data/
 
 # Feishu integration tests & credentials (never commit)
 feishu/
+
+# Release packaging (CI/local)
+dist/
+installer/Output/
