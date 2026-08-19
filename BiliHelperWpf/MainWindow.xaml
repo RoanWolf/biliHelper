@@ -183,13 +183,26 @@
             <!-- 有数据时 -->
             <Grid Visibility="{Binding HasVideoInfo, Converter={StaticResource BoolToVis}}">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="260" />
+                    <!-- 多分P 显示 260 宽列表；单分P 隐藏（列宽归零） -->
+                    <ColumnDefinition>
+                        <ColumnDefinition.Style>
+                            <Style TargetType="ColumnDefinition">
+                                <Setter Property="Width" Value="260" />
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding ShowPartList}" Value="False">
+                                        <Setter Property="Width" Value="0" />
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </ColumnDefinition.Style>
+                    </ColumnDefinition>
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
 
                 <!-- 左侧：分P列表 -->
                 <Border Grid.Column="0" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
-                        BorderThickness="0">
+                        BorderThickness="0"
+                        Visibility="{Binding ShowPartList, Converter={StaticResource BoolToVis}}">
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
@@ -254,7 +267,8 @@
                               HorizontalAlignment="Right"
                               VerticalAlignment="Stretch"
                               Background="Transparent"
-                              ResizeDirection="Columns" />
+                              ResizeDirection="Columns"
+                              Visibility="{Binding ShowPartList, Converter={StaticResource BoolToVis}}" />
 
                 <!-- 右侧：字幕区域（直接紧跟分割条，无独立中间列） -->
                 <Border Grid.Column="1" Background="{DynamicResource ApplicationBackgroundBrush}">

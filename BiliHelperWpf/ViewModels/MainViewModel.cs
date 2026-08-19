@@ -112,11 +112,20 @@ public class MainViewModel : ViewModelBase
         set
         {
             if (SetProperty(ref _videoInfo, value))
+            {
                 OnPropertyChanged(nameof(HasVideoInfo));
+                OnPropertyChanged(nameof(ShowPartList));
+            }
         }
     }
 
     public bool HasVideoInfo => VideoInfo != null;
+
+    /// <summary>
+    /// 是否显示左侧分P 列表：仅多分P 视频显示，单分P（含 YouTube 单视频）隐藏。
+    /// 纯 UI 展示逻辑，存储/加载均不受影响。
+    /// </summary>
+    public bool ShowPartList => VideoInfo != null && VideoInfo.TotalParts > 1;
 
     private PartInfo? _selectedPart;
     public PartInfo? SelectedPart
