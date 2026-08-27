@@ -10,4 +10,7 @@ dependencies = [
     "requests>=2.30.0",
     "qrcode>=7.4",
     "pillow>=9.0.0",
+    # YouTube 字幕下载的 TLS 指纹伪装（impersonate）。0.12+ 的 impersonate API
+    # 与 yt-dlp 不兼容（target 列表为空），钉在 0.11.x。
+    "curl_cffi>=0.11,<0.12",
 ]

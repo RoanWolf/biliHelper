@@ -112,7 +112,7 @@
                     <!-- 版本信息 -->
                     <StackPanel VerticalAlignment="Bottom" Margin="20,12,12,16">
                         <Border Style="{StaticResource FluentDividerStyle}" Margin="0,0,8,12" />
-                        <TextBlock Text="BiliHelper v1.0.0"
+                        <TextBlock Text="BiliHelper v1.0.2"
                                    FontSize="12"
                                    Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
                     </StackPanel>

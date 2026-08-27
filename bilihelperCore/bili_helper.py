@@ -84,6 +84,24 @@ def _sub_langs_arg(url: str) -> str:
     """字幕语言参数：B 站拉全部（ai-zh 等命名特殊），YouTube 限中文档位。"""
     return _YOUTUBE_SUB_LANGS if is_youtube(url) else "all,-danmaku"
 
+
+# YouTube 字幕下载附加参数：
+#   --impersonate chrome       curl_cffi 的 Chrome TLS 指纹伪装（否则字幕 API 按 IP 风控 429）
+#   --ignore-no-formats-error  登录态/风控下视频格式解析失败不中断字幕下载（我们只拉字幕）
+#   player_client=ios          匿名 iOS 客户端通道（无需登录/poToken 即可访问字幕）
+_YOUTUBE_DL_ARGS = [
+    "--impersonate",
+    "chrome",
+    "--ignore-no-formats-error",
+    "--extractor-args",
+    "youtube:player_client=ios",
+]
+
+
+def _youtube_extra_args(url: str) -> list[str]:
+    """YouTube 字幕下载附加参数；B 站返回空。"""
+    return _YOUTUBE_DL_ARGS if is_youtube(url) else []
+
 _SRT_TIME_RE = re.compile(
     r"(\d{2}):(\d{2}):(\d{2})[,.](\d{3})\s*-->\s*"
     r"(\d{2}):(\d{2}):(\d{2})[,.](\d{3})"
@@ -324,6 +342,7 @@ def get_subtitles(
                 "-o",
                 tmpl,
             ]
+            + _youtube_extra_args(url)
             + cookie_args
             + [url]
         )
@@ -533,6 +552,7 @@ def get_subtitles_stream(
                     "-o",
                     tmpl,
                 ]
+                + _youtube_extra_args(url)
                 + cookie_args
                 + [part_url]
             )

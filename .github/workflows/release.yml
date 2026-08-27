@@ -52,7 +52,7 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path dist/bilihelperCore/.venv/Lib/site-packages | Out-Null
           python -m pip install --no-compile --target dist/bilihelperCore/.venv/Lib/site-packages `
-            "openai>=2.53.0" "yt-dlp>=2024.1" "requests>=2.30.0" "qrcode>=7.4" "pillow>=9.0.0"
+            "openai>=2.53.0" "yt-dlp>=2024.1" "requests>=2.30.0" "qrcode>=7.4" "pillow>=9.0.0" "curl_cffi>=0.11,<0.12"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Copy Python backend sources
