@@ -38,6 +38,13 @@ public partial class SettingsWindow : Wpf.Ui.Controls.FluentWindow
     [DllImport("user32.dll")]
     private static extern IntPtr DefWindowProc(IntPtr hWnd, int uMsg, IntPtr wParam, IntPtr lParam);
 
+    /// <summary>
+    /// 运行时从 AssemblyInfo 读取版本号，与 csproj Version 字段同步，
+    /// 无需在 XAML 或 code-behind 硬编码。
+    /// </summary>
+    public string AppVersion { get; } =
+        typeof(SettingsWindow).Assembly.GetName().Version?.ToString(3) ?? "dev";
+
     public SettingsWindow(MainViewModel vm, int panelIndex = 0)
     {
         InitializeComponent();
